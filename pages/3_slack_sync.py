@@ -5,7 +5,7 @@ token = st.secrets["SLACK_TOKEN"]  # store in .streamlit/secrets.toml
 
 st.title("Sync from Slack (Coming Soon!)")
 link = st.text_input("Paste Slack message link")
-emoji = st.text_input("Reaction emoji to count", value="white_check_mark")
+emoji = st.text_input("Reaction emoji to count", value="white_check_mark (do visuals)")
 
 if st.button("Fetch Attendance"):
     with st.spinner("Fetching..."):
