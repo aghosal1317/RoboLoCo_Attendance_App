@@ -122,11 +122,6 @@ with st.expander(f"Members Below 70% ({low_count})", expanded=low_count > 0):
             ["First Name", "Last Name", "Subteam", "% Meetings Attended"]
         ].sort_values("% Meetings Attended")
 
-        st.dataframe(
-            display_df.style.background_gradient(
-                subset=["% Meetings Attended"], cmap="Reds"
-            ),
-            use_container_width=True
-        )
+        st.dataframe(display_df, use_container_width=True)
     else:
         st.success("All members are above 70% attendance.")
