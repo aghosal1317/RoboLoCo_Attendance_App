@@ -1,12 +1,34 @@
 import pandas as pd
+import streamlit as st
+import gspread
+from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 CSV_PATH = "data/attendance.csv"
+SHEET_ID = "1C9qau6QvJL2o-TcvZupEroCn-F8H7tT0Q7Zbvn1m64Q"
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+
+def _get_worksheet():
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"], scopes=SCOPES
+    )
+    client = gspread.authorize(creds)
+    return client.open_by_key(SHEET_ID).sheet1
 
 
 def load_data():
-    """Load and clean attendance CSV."""
-    df = pd.read_csv(CSV_PATH)
+    """Load attendance from Google Sheet, fall back to local CSV."""
+    try:
+        ws = _get_worksheet()
+        rows = ws.get_all_values()
+        df = pd.DataFrame(rows[1:], columns=rows[0])
+    except Exception:
+        df = pd.read_csv(CSV_PATH)
+
     df.columns = df.columns.str.strip()
 
     # Rename first two columns
@@ -27,12 +49,12 @@ def load_data():
     df["Subteam"] = subteams
 
     # Remove section header rows
-    df = df[df["First Name"].notna()]
+    df = df[df["First Name"].notna() & (df["First Name"] != "")]
 
     # Clean % Meetings Attended
     if "% Meetings Attended" in df.columns:
         df["% Meetings Attended"] = (
-            df["% Meetings Attended"].astype(str).str.rstrip("%").astype(float)
+            df["% Meetings Attended"].astype(str).str.rstrip("%").replace("", "0").astype(float)
         )
     else:
         df["% Meetings Attended"] = 0.0
@@ -95,5 +117,15 @@ def recalc_percentages(df):
 
 
 def save_data(df, path=CSV_PATH):
-    """Save CSV."""
+    """Save to Google Sheet (primary) and local CSV (backup)."""
+    # Always write local backup
     df.to_csv(path, index=False)
+
+    # Write to Google Sheet
+    try:
+        ws = _get_worksheet()
+        data = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
+        ws.clear()
+        ws.update(data)
+    except Exception as e:
+        st.warning(f"Saved locally but could not sync to Google Sheet: {e}")
