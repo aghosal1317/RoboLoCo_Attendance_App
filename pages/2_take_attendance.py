@@ -11,11 +11,23 @@ df = load_data()
 df["Full Name"] = df["First Name"].str.strip() + " " + df["Last Name"].str.strip()
 
 st.title("Take Attendance")
+st.text("This page will likely not be needed when Slack Bot is implemented")
 
 # ----------------------------
-# Create checkboxes for each member
+# Search box
 # ----------------------------
-attendance = {name: st.checkbox(name) for name in df["Full Name"]}
+search_name = st.text_input("Search for a member (leave blank to show all)")
+
+# Filter members by search term (case-insensitive)
+if search_name:
+    filtered_df = df[df["Full Name"].str.contains(search_name, case=False, na=False)]
+else:
+    filtered_df = df.copy()
+
+# ----------------------------
+# Create checkboxes for filtered members
+# ----------------------------
+attendance = {name: st.checkbox(name) for name in filtered_df["Full Name"]}
 
 # ----------------------------
 # Submit button
