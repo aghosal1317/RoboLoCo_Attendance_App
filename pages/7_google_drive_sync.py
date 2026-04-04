@@ -21,8 +21,8 @@ if st.button("Sync Now"):
     else:
         try:
             # Connect to Google Sheet
-            creds = Credentials.from_service_account_file(
-                "data/service_account.json",
+            creds = Credentials.from_service_account_info(
+                st.secrets["gcp_service_account"], #"data/service_account.json" for local testing by Aneesh
                 scopes=[
                     "https://www.googleapis.com/auth/spreadsheets",
                     "https://www.googleapis.com/auth/drive"
