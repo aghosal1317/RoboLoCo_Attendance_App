@@ -57,9 +57,17 @@ col1.metric(
     f"{latest_pct}%" if latest_pct is not None else "No data"
 )
 
+prev_week_data = melted[
+    (melted["Date"] >= pd.Timestamp(date.today() - timedelta(days=14))) &
+    (melted["Date"] < pd.Timestamp(date.today() - timedelta(days=7)))
+]
+prev_week_avg = round(prev_week_data["Present"].mean() * 100, 1) if len(prev_week_data) else None
+overall_delta = round(overall_avg - prev_week_avg, 1) if prev_week_avg is not None else None
+
 col2.metric(
     "Overall Average",
     f"{overall_avg}%",
+    delta=f"{overall_delta:+.1f}% vs last week" if overall_delta is not None else None,
     help=f"From {start_date.strftime('%m/%d/%y')} to {end_date.strftime('%m/%d/%y')}"
 )
 
@@ -94,7 +102,12 @@ weekly_trend = (
 weekly_trend.columns = ["Week", "% Meetings Attended"]
 
 fig = px.line(weekly_trend, x="Week", y="% Meetings Attended", markers=True)
-fig.update_layout(yaxis_range=[50, 100])
+fig.update_layout(
+    yaxis_range=[0, 100],
+    xaxis_title="Week",
+    yaxis_title="Attendance (%)",
+    title="Weekly Attendance Trend"
+)
 
 st.plotly_chart(fig, use_container_width=True)
 
@@ -103,16 +116,17 @@ st.plotly_chart(fig, use_container_width=True)
 # ----------------------------
 st.subheader("Action Center")
 
-show_low = st.button(f"Show Members Below 70% ({low_count})")
+with st.expander(f"Members Below 70% ({low_count})", expanded=low_count > 0):
+    if low_count > 0:
+        display_df = low_members[
+            ["First Name", "Last Name", "Subteam", "% Meetings Attended"]
+        ].sort_values("% Meetings Attended")
 
-if show_low and low_count > 0:
-    display_df = low_members[
-        ["First Name", "Last Name", "Subteam", "% Meetings Attended"]
-    ].sort_values("% Meetings Attended")
-
-    st.dataframe(
-        display_df.style.background_gradient(
-            subset=["% Meetings Attended"], cmap="Reds"
-        ),
-        use_container_width=True
-    )
+        st.dataframe(
+            display_df.style.background_gradient(
+                subset=["% Meetings Attended"], cmap="Reds"
+            ),
+            use_container_width=True
+        )
+    else:
+        st.success("All members are above 70% attendance.")

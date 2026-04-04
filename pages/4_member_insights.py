@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 from data_loader import load_data, melt_attendance
 
 # ----------------------------
@@ -51,16 +52,39 @@ else:
     total_counted = person_data["Counted"].sum()
     attendance_percent = (total_attended / total_counted * 100) if total_counted > 0 else 0
 
-    st.metric("% Meetings Attended", f"{attendance_percent:.2f}%")
-
     # Last attended date
     attended_dates = person_data.loc[person_data["Attended"] == 1, "Date"]
     last_date = attended_dates.max() if not attended_dates.empty else None
-    st.metric("Last Attended", str(last_date.date()) if last_date is not None else "N/A")
+
+    # Consecutive meetings missed (trailing streak of A/Z)
+    sorted_statuses = person_data.sort_values("Date")["Status"].tolist()
+    consecutive_missed = 0
+    for s in reversed(sorted_statuses):
+        if s in ["A", "Z"]:
+            consecutive_missed += 1
+        else:
+            break
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("% Meetings Attended", f"{attendance_percent:.2f}%")
+    m2.metric("Last Attended", str(last_date.date()) if last_date is not None else "N/A")
+    m3.metric("Consecutive Missed", consecutive_missed)
 
     # Trend chart: cumulative % over time
-    person_data["Cumulative %"] = (
-        person_data["Attended"].cumsum() / person_data["Counted"].cumsum() * 100
-    )
+    chart_data = person_data.dropna(subset=["Date"]).sort_values("Date").copy()
+    cum_attended = chart_data["Attended"].cumsum()
+    cum_counted = chart_data["Counted"].cumsum()
+    chart_data = chart_data[cum_counted > 0].copy()
+    cum_attended = chart_data["Attended"].cumsum()
+    cum_counted = chart_data["Counted"].cumsum()
+    chart_data["Cumulative %"] = cum_attended / cum_counted * 100
 
-    st.line_chart(person_data.set_index("Date")["Cumulative %"])
+    fig = px.line(
+        chart_data,
+        x="Date",
+        y="Cumulative %",
+        markers=True,
+        title="Cumulative Attendance Over Time"
+    )
+    fig.update_layout(yaxis_range=[0, 100], xaxis_title="Date", yaxis_title="Attendance (%)")
+    st.plotly_chart(fig, use_container_width=True)

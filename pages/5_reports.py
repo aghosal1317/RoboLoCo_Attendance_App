@@ -1,3 +1,4 @@
 import streamlit as st
 
-st.title("Weekly reports emailed to coaches/exec... Coming soon!")
+st.title("Reports")
+st.info("📬 Weekly reports emailed to coaches and exec are coming soon.")

@@ -3,6 +3,7 @@ import pandas as pd
 from data_loader import load_data, save_data
 
 st.title("Edit Attendance (Spreadsheet Mode)")
+st.caption("Valid status codes: **P** = Present, **A** = Absent, **L** = Late, **O** = Opted Out, **Z** = Excused")
 
 # Load CSV
 df = load_data()

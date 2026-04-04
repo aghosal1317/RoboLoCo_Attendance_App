@@ -12,7 +12,7 @@ df = load_data()
 
 sheet_url = st.text_input(
     "Enter Google Sheet URL (must be shared with your service account)",
-    "https://docs.google.com/spreadsheets/d/1C9qau6QvJL2o-TcvZupEroCn-F8H7tT0Q7Zbvn1m64Q/edit"
+    "https://docs.google.com/spreadsheets/d/1C9qau6QvJL2o-TcvZupEroCn-F8H7tT0Q7Zbvn1m64Q/edit?usp=sharing"
 )
 
 if st.button("Sync Now"):

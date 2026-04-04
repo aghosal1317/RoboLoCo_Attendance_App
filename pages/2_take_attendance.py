@@ -1,6 +1,6 @@
 import streamlit as st
 from data_loader import load_data, save_data, recalc_percentages
-from datetime import datetime
+from datetime import date
 
 # ----------------------------
 # Load data
@@ -11,7 +11,28 @@ df = load_data()
 df["Full Name"] = df["First Name"].str.strip() + " " + df["Last Name"].str.strip()
 
 st.title("Take Attendance")
-st.text("This page will likely not be needed when Slack Bot is implemented")
+st.info("Once the Slack Bot is live, this page may no longer be needed.")
+
+# ----------------------------
+# Date selector + optional meeting toggle
+# ----------------------------
+opt_col, date_col = st.columns([1, 2])
+
+with opt_col:
+    is_optional = st.toggle("Optional Meeting", value=False,
+                            help="Present members get P (counts positively). Absent members get O (no deduction).")
+
+with date_col:
+    selected_date = st.date_input("Meeting date", value=date.today())
+
+date_str = selected_date.strftime("%m/%d/%y")
+
+if is_optional:
+    st.caption(f"Optional meeting — absences will be marked **O** (no % deduction) for {date_str}")
+else:
+    st.caption(f"Regular meeting — absences will be marked **A** for {date_str}")
+
+st.divider()
 
 # ----------------------------
 # Search box
@@ -25,32 +46,34 @@ else:
     filtered_df = df.copy()
 
 # ----------------------------
-# Create checkboxes for filtered members
+# Create checkboxes for filtered members (3-column grid)
 # ----------------------------
-attendance = {name: st.checkbox(name) for name in filtered_df["Full Name"]}
+names = list(filtered_df["Full Name"])
+cols = st.columns(3)
+attendance = {name: cols[i % 3].checkbox(name) for i, name in enumerate(names)}
 
 # ----------------------------
 # Submit button
 # ----------------------------
 if st.button("Submit Attendance"):
-    today_col = datetime.today().strftime("%m/%d/%y")
-    
     # Create new column if it doesn't exist
-    if today_col not in df.columns:
-        df[today_col] = ""  
+    if date_str not in df.columns:
+        df[date_str] = ""
+
+    absent_code = "O" if is_optional else "A"
 
     # Update attendance directly by Full Name
     for name, present in attendance.items():
         match = df["Full Name"] == name
         if match.any():
-            df.loc[match, today_col] = "P" if present else "A"
+            df.loc[match, date_str] = "P" if present else absent_code
         else:
             st.warning(f"No row found for {name} – check CSV for spelling or extra spaces.")
-    
+
     # Recalculate attendance percentages
     df = recalc_percentages(df)
-    
+
     # Save updated CSV
     save_data(df)
-    
-    st.success(f"✅ Attendance saved for {today_col}!")
+
+    st.success(f"✅ Attendance saved for {date_str}!")
