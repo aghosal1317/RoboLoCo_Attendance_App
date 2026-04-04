@@ -1,7 +1,7 @@
 import streamlit as st
 #from slack_integration import get_reactors, get_user_name
 
-token = st.secrets["SLACK_TOKEN"]  # store in .streamlit/secrets.toml
+#token = st.secrets["SLACK_TOKEN"]  # store in .streamlit/secrets.toml
 
 st.title("Sync from Slack")
 st.warning("🚧 This feature is coming soon. Slack Bot integration is in progress.")
