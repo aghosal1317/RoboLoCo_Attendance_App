@@ -7,4 +7,4 @@ openpyxl
 slack_sdk
 pillow
 qrcode
-streamlit-qrcode-scanner
+opencv-python-headless
