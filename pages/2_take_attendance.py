@@ -56,24 +56,22 @@ attendance = {name: cols[i % 3].checkbox(name) for i, name in enumerate(names)}
 # Submit button
 # ----------------------------
 if st.button("Submit Attendance"):
-    # Create new column if it doesn't exist
-    if date_str not in df.columns:
-        df[date_str] = ""
+    # Re-pull latest from Sheet before writing to avoid overwriting direct edits
+    fresh_df = load_data()
+    fresh_df["Full Name"] = fresh_df["First Name"].str.strip() + " " + fresh_df["Last Name"].str.strip()
+
+    if date_str not in fresh_df.columns:
+        fresh_df[date_str] = ""
 
     absent_code = "O" if is_optional else "A"
 
-    # Update attendance directly by Full Name
     for name, present in attendance.items():
-        match = df["Full Name"] == name
+        match = fresh_df["Full Name"] == name
         if match.any():
-            df.loc[match, date_str] = "P" if present else absent_code
+            fresh_df.loc[match, date_str] = "P" if present else absent_code
         else:
             st.warning(f"No row found for {name} – check CSV for spelling or extra spaces.")
 
-    # Recalculate attendance percentages
-    df = recalc_percentages(df)
-
-    # Save updated CSV
-    save_data(df)
-
+    fresh_df = recalc_percentages(fresh_df)
+    save_data(fresh_df)
     st.success(f"✅ Attendance saved for {date_str}!")
