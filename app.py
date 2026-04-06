@@ -34,3 +34,5 @@ with col2:
 with col3:
     st.info("**📄 Reports**\nWeekly summaries emailed to coaches and exec.")
     st.info("**☁️ Google Drive Sync**\nPush the attendance CSV up to a Google Sheet.")
+    st.info("**🔲 Generate QR Codes**\nPrint or download unique QR codes for each member.")
+    st.info("**📷 QR Check-In**\nMembers scan their QR code to mark themselves present.")

@@ -6,3 +6,5 @@ google-auth
 openpyxl
 slack_sdk
 pillow
+qrcode
+streamlit-qrcode-scanner
