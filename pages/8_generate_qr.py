@@ -12,10 +12,18 @@ df["Full Name"] = df["First Name"].str.strip() + " " + df["Last Name"].str.strip
 # Filter out subteam header rows
 members = df[df["Full Name"].str.strip() != ""].copy()
 
-# Optional: filter by subteam
-subteams = sorted(members["Subteam"].dropna().unique().tolist())
-selected_subteam = st.selectbox("Filter by subteam", ["All"] + subteams)
+# Search + subteam filter
+search_col, subteam_col = st.columns([2, 1])
 
+with search_col:
+    search = st.text_input("Search member", placeholder="Type a name...")
+
+with subteam_col:
+    subteams = sorted(members["Subteam"].dropna().unique().tolist())
+    selected_subteam = st.selectbox("Filter by subteam", ["All"] + subteams)
+
+if search:
+    members = members[members["Full Name"].str.contains(search, case=False, na=False)]
 if selected_subteam != "All":
     members = members[members["Subteam"] == selected_subteam]
 
