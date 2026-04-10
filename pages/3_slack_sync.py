@@ -3,8 +3,6 @@ from slack_integration import get_attendance_by_subteam, SUBTEAM_EMOJIS
 from data_loader import load_data, save_data, recalc_percentages
 from datetime import date
 
-token = st.secrets["SLACK_TOKEN"]
-
 st.title("Sync from Slack")
 
 # ----------------------------
@@ -21,7 +19,10 @@ link = st.text_input("Paste Slack message link")
 if st.button("Fetch Attendance"):
     if not link:
         st.warning("Please paste a Slack message link.")
+    elif "SLACK_TOKEN" not in st.secrets:
+        st.error("SLACK_TOKEN not found in secrets. Add it to .streamlit/secrets.toml or Streamlit Cloud settings.")
     else:
+        token = st.secrets["SLACK_TOKEN"]
         with st.spinner("Fetching reactions from Slack..."):
             results = get_attendance_by_subteam(token, link)
 
