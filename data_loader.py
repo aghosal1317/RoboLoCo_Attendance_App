@@ -13,9 +13,14 @@ SCOPES = [
 
 
 def _get_worksheet():
-    creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"], scopes=SCOPES
-    )
+    if "gcp_service_account" in st.secrets:
+        creds = Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"], scopes=SCOPES
+        )
+    else:
+        creds = Credentials.from_service_account_file(
+            "data/service_account.json", scopes=SCOPES
+        )
     client = gspread.authorize(creds)
     return client.open_by_key(SHEET_ID).sheet1
 
