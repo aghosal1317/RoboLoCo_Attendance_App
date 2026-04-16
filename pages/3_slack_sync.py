@@ -6,10 +6,22 @@ from datetime import date
 st.title("Sync from Slack")
 
 # ----------------------------
-# Date selector
+# Date selector + optional meeting toggle
 # ----------------------------
-selected_date = st.date_input("Meeting date", value=date.today())
+opt_col, date_col = st.columns([1, 2])
+
+with opt_col:
+    is_optional = st.toggle("Optional Meeting", value=False,
+                            help="Absent members get O (no % deduction) instead of A.")
+with date_col:
+    selected_date = st.date_input("Meeting date", value=date.today())
+
 date_str = selected_date.strftime("%m/%d/%y")
+
+if is_optional:
+    st.caption(f"Optional meeting — non-reactors will be marked **O** for {date_str}")
+else:
+    st.caption(f"Regular meeting — non-reactors will be marked **A** for {date_str}")
 
 # ----------------------------
 # Message link input
@@ -31,6 +43,7 @@ if st.button("Fetch Attendance"):
         else:
             st.session_state["slack_results"] = results
             st.session_state["slack_date_str"] = date_str
+            st.session_state["slack_is_optional"] = is_optional
 
 # ----------------------------
 # Show results if fetched
@@ -38,6 +51,7 @@ if st.button("Fetch Attendance"):
 if "slack_results" in st.session_state:
     results = st.session_state["slack_results"]
     saved_date_str = st.session_state["slack_date_str"]
+    saved_is_optional = st.session_state["slack_is_optional"]
 
     st.divider()
     st.subheader(f"Reactions for {saved_date_str}")
@@ -69,7 +83,8 @@ if "slack_results" in st.session_state:
     # Match against roster + submit
     # ----------------------------
     st.subheader("Submit Attendance")
-    st.caption("Members who reacted with their subteam emoji get P. Everyone else gets A.")
+    absent_label = "O (optional, no deduction)" if saved_is_optional else "A"
+    st.caption(f"Members who reacted with their subteam emoji get P. Everyone else gets **{absent_label}**.")
 
     if st.button("Save to Attendance Sheet", type="primary"):
         fresh_df = load_data()
@@ -86,6 +101,7 @@ if "slack_results" in st.session_state:
 
         unmatched = []
         matched_count = 0
+        absent_code = "O" if saved_is_optional else "A"
 
         for idx, row in fresh_df.iterrows():
             full_name = row["Full Name"].strip().lower()
@@ -93,7 +109,7 @@ if "slack_results" in st.session_state:
                 fresh_df.at[idx, saved_date_str] = "P"
                 matched_count += 1
             else:
-                fresh_df.at[idx, saved_date_str] = "A"
+                fresh_df.at[idx, saved_date_str] = absent_code
 
         # Warn about Slack names that didn't match anyone in the roster
         roster_lower = set(fresh_df["Full Name"].str.strip().str.lower())
@@ -114,3 +130,4 @@ if "slack_results" in st.session_state:
 
         del st.session_state["slack_results"]
         del st.session_state["slack_date_str"]
+        del st.session_state["slack_is_optional"]

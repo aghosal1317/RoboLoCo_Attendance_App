@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(pip install:*)",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(python -m streamlit run \"C:\\\\Users\\\\aghos\\\\OneDrive\\\\Documents\\\\Code\\\\Attendance\\\\app.py\")"
     ]
   }
 }
