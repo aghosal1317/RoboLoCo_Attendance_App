@@ -12,7 +12,7 @@ from model import (
 # ----------------------------
 # Page config
 # ----------------------------
-st.title("🤖 Attendance Predictions")
+st.title("Attendance Predictions (Beta)")
 st.markdown(
     "Uses historical attendance patterns to predict who will show up to the next meeting. "
     "Three models are compared; the best one is used for predictions."
