@@ -6,29 +6,56 @@
 
 ## Overview
 
-RoboLoCo (FIRST Robotics Competition Team 5338) holds meetings several times a week across four subteams - Executive, Loco, Mechanical, and Software. For a long time, our team secretary was manually recording attendance for every member at every meeting in a spreadsheet by hand. As the team grew, this became increasingly time-consuming and error-prone.
+RoboLoCo (FIRST Robotics Competition Team 5338) holds meetings several times a week across four subteams — Executive, Loco, Mechanical, and Software. For a long time, our team secretary was manually recording attendance for 70+ members at every meeting in a spreadsheet by hand. As the team grew, this became unsustainable, especially during build season when meetings happen daily.
 
-I built this tool to fully automate that process. The app ingests our master attendance CSV, computes statistics dynamically, visualizes trends across subteams and months, and will soon sync attendance directly from Slack - where members already mark their presence by reacting to a message. The goal was to reduce the administrative burden on our secretary and give leads and mentors real-time visibility into team engagement.
+This app fully automates that process. It supports multiple check-in methods, computes statistics dynamically, visualizes trends, and syncs to Google Sheets — reducing attendance tracking to a matter of seconds per meeting.
 
 ---
 
 ## Features
 
-- **Dashboard** — real-time attendance overview with weekly trend charts and automated low-attendance alerts
-- **Member Insights** — per-member attendance percentage, last attended date, subteam rank, and individual trend chart
-- **Subteam Analytics** — average attendance broken down by subteam with month-over-month comparisons
-- **Google Sheets Sync** — one-click export of the full attendance dataset to a shared Google Sheet, with automatic percentage recalculation
-- **Manual Attendance Entry** — backup check-in interface with per-member checkboxes and CSV write-back
-- **Slack Sync** *(in development)* — will automatically pull attendance from Slack message reactions, eliminating manual data entry entirely
-- **Reports** — downloadable CSV reports for record-keeping
+### Dashboard
+Real-time attendance overview including latest meeting percentage, overall team average, and how many members are below the 70% threshold. Displays a week-over-week trend chart and an action center listing members who need follow-up. Automatic alerts fire when attendance drops or a member falls below threshold.
+
+### Take Attendance
+Manual check-in interface with a searchable checkbox grid of all members. Supports backdated entries, an optional meeting toggle (absences marked as `O` and excluded from percentage calculations), and writes directly to the master CSV and Google Sheet on submission.
+
+### Slack Sync
+Paste a Slack message link and the app fetches all emoji reactions via the Slack API and maps them to subteams:
+- 🔨 `hammer_and_wrench` → Mechanical
+- 💻 `computer` → Software
+- 🎨 `art` → Loco
+- 💼 `briefcase` → Executive
+- 👎 thumbs-down variants → Won't attend
+
+Matches Slack display names against the roster and warns about any unresolved names.
+
+### Member Insights
+Per-member profile with overall attendance percentage, last attended date, and consecutive meetings missed. Includes an individual cumulative attendance trend chart over time.
+
+### Edit Attendance
+Spreadsheet-style data editor for correcting any past record. Supports all five status codes with direct cell editing and one-click save back to the master CSV.
+
+### Google Drive Sync
+One-click export of the full attendance dataset to a shared Google Sheet. Recalculates all percentages before upload and fills missing date columns with `O`.
+
+### Generate QR Codes
+Generates a unique QR code for every member (encoding `ROBOLOCO:{Full Name}`). Displayed in a searchable, filterable grid with individual PNG download per member.
+
+### QR Check-In
+Live camera-based QR code scanner built on OpenCV. Members hold up their QR code and are added to a checked-in list in real time. Supports optional meeting mode and submits batch attendance on confirmation.
 
 ---
 
-## Motivation
+## Attendance Codes
 
-Our secretary was spending significant time each week manually tracking who attended each meeting and calculating attendance percentages across 70+ members. This was not a sustainable workflow, especially during the competitive build season when meetings occur daily.
-
-By building a centralized tool that reads from a single source of truth (our master CSV), recalculates statistics dynamically, and will eventually pull directly from Slack reactions, I aimed to reduce that overhead to near zero. Captains and mentors can now check attendance trends at a glance rather than waiting for a manual update.
+| Code | Meaning | Counts Toward % |
+|------|---------|----------------|
+| `P` | Present | Yes |
+| `L` | Late | Yes |
+| `A` | Absent | No (counted in denominator) |
+| `Z` | Excused absence | No (counted in denominator) |
+| `O` | Opted out / optional | Ignored entirely |
 
 ---
 
@@ -41,29 +68,37 @@ By building a centralized tool that reads from a single source of truth (our mas
 | [Plotly](https://plotly.com) | Interactive charts |
 | [gspread](https://gspread.readthedocs.io) | Google Sheets API integration |
 | [Google Auth](https://google-auth.readthedocs.io) | Service account authentication |
-| [Slack SDK](https://slack.dev/python-slack-sdk/) | Slack API integration *(in development)* |
+| [Slack SDK](https://slack.dev/python-slack-sdk/) | Slack API integration |
+| [OpenCV](https://opencv.org) | QR code scanning via camera |
+| [qrcode](https://pypi.org/project/qrcode/) | QR code generation |
+| [Pillow](https://pillow.readthedocs.io) | Image handling |
+| [openpyxl](https://openpyxl.readthedocs.io) | Excel file support |
 
 ---
 
 ## Folder Structure
 
 ```
-attendance-app/
-├── app.py                    # entry point and page routing
+RoboLoCo_Attendance_App/
+├── app.py                    # Entry point and page routing
 ├── data_loader.py            # CSV read/write and aggregation helpers
 ├── slack_integration.py      # Slack API logic
-├── model.py                  # attendance prediction
+├── model.py                  # Attendance prediction (in development)
 ├── pages/
 │   ├── 1_dashboard.py
 │   ├── 2_take_attendance.py
 │   ├── 3_slack_sync.py
 │   ├── 4_member_insights.py
-│   └── 5_reports.py
+│   ├── 5_edit_specific_date.py
+│   ├── 6_google_drive_sync.py
+│   ├── 7_generate_qr.py
+│   └── 8_qr_checkin.py
 ├── data/
-│   └── attendance.csv        # master attendance dataset
+│   ├── attendance.csv        # Master attendance dataset
+│   └── service_account.json # GCP credentials (gitignored)
 ├── requirements.txt
 └── .streamlit/
-    └── secrets.toml          # local secrets (gitignored)
+    └── secrets.toml          # Local secrets (gitignored)
 ```
 
 ---
@@ -78,12 +113,12 @@ cd RoboLoCo_Attendance_App
 
 **2. Install dependencies**
 ```bash
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 **3. Configure secrets**
 
-Create `.streamlit/secrets.toml` — this file is gitignored and should never be committed:
+Create `.streamlit/secrets.toml` — this file is gitignored and must never be committed:
 ```toml
 SLACK_TOKEN = "xoxb-your-slack-token"
 
@@ -91,13 +126,19 @@ SLACK_TOKEN = "xoxb-your-slack-token"
 type = "service_account"
 project_id = "your-project-id"
 private_key_id = "your-key-id"
-private_key = """-----BEGIN RSA PRIVATE KEY-----
+private_key = """-----BEGIN PRIVATE KEY-----
 your key here
------END RSA PRIVATE KEY-----"""
+-----END PRIVATE KEY-----"""
 client_email = "your@your-project.iam.gserviceaccount.com"
 client_id = "your-client-id"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
 token_uri = "https://oauth2.googleapis.com/token"
+auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
+client_x509_cert_url = "https://www.googleapis.com/robot/v1/metadata/x509/your-account"
+universe_domain = "googleapis.com"
 ```
+
+The service account must have access to the Google Sheet used for sync. Share the sheet with the `client_email` address.
 
 **4. Run the app**
 ```bash
@@ -108,30 +149,24 @@ streamlit run app.py
 
 ## Deployment
 
-The app is deployed on Streamlit Community Cloud and automatically redeploys on every push to `main`. Secrets (Google service account credentials and Slack token) are stored securely via Streamlit's secrets management and are never exposed in the repository.
+Deployed on Streamlit Community Cloud with automatic redeployment on every push to `main`. Secrets are stored securely via Streamlit's secrets management and are never exposed in the repository.
 
 **Live at: [robolocoattendance.streamlit.app](https://robolocoattendance.streamlit.app)**
-
----
-
-## Attendance Codes
-
-| Code | Meaning |
-|------|---------|
-| `P` | Present |
-| `A` | Absent |
-| `O` | Excused |
 
 ---
 
 ## Roadmap
 
 - [x] CSV parsing and dynamic percentage calculation
-- [x] Dashboard with trend charts and alerts
-- [x] Member insights page
+- [x] Dashboard with trend charts and low-attendance alerts
+- [x] Manual attendance entry with optional meeting support
+- [x] Member insights with individual trend charts
+- [x] Edit attendance records
 - [x] Google Sheets sync
-- [ ] Slack reaction-based attendance sync
-- [ ] Automated weekly summary report
+- [x] Slack reaction-based attendance sync
+- [x] QR code generation per member
+- [x] Live QR code camera check-in
+- [ ] Automated weekly summary report to coaches
 - [ ] Attendance prediction model
 
 ---
