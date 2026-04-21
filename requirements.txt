@@ -8,3 +8,4 @@ slack_sdk
 pillow
 qrcode
 opencv-python-headless
+scikit-learn
