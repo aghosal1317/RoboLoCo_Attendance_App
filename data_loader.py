@@ -1,3 +1,4 @@
+import re
 import pandas as pd
 import streamlit as st
 import gspread
@@ -5,11 +6,14 @@ from google.oauth2.service_account import Credentials
 from datetime import datetime
 
 CSV_PATH = "data/attendance.csv"
-SHEET_ID = "1C9qau6QvJL2o-TcvZupEroCn-F8H7tT0Q7Zbvn1m64Q"
+SHEET_ID = "1bwqw-1DzP1netXcp_L7XLEWg3BZh5glSeshDY9jeprs"
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
 ]
+
+_DATE_RE = re.compile(r"^\d{2}/\d{2}/\d{2}")
+_SUBTEAM_NAMES = {"Executive", "Loco", "Mechanical", "Software", "Coaches"}
 
 
 def _get_worksheet():
@@ -25,41 +29,108 @@ def _get_worksheet():
     return client.open_by_key(SHEET_ID).sheet1
 
 
+def _deduplicate_columns(columns):
+    """
+    Google Sheets doesn't auto-rename duplicate column headers the way pandas does.
+    This replicates pandas' behavior: second occurrence of 'X' becomes 'X.1', third 'X.2', etc.
+    """
+    seen = {}
+    result = []
+    for col in columns:
+        if col in seen:
+            seen[col] += 1
+            result.append(f"{col}.{seen[col]}")
+        else:
+            seen[col] = 0
+            result.append(col)
+    return result
+
+
 def load_data():
-    """Load attendance from Google Sheet, fall back to local CSV."""
+    """
+    Load attendance from Google Sheet, fall back to local CSV.
+
+    Expected sheet structure (new format):
+        Col 0  : Last Name  (or subteam section header)
+        Col 1  : First Name
+        Col 2  : % Meetings Attended
+        Col 3+ : Date columns (MM/DD/YY), with duplicate dates for same-day double sessions
+
+    Section header rows (Executive / Loco / Mechanical / Software / Coaches)
+    and count/empty rows are stripped automatically.
+    Coaches are excluded from the member roster.
+    """
     try:
         ws = _get_worksheet()
         rows = ws.get_all_values()
-        df = pd.DataFrame(rows[1:], columns=rows[0])
+        if not rows:
+            raise ValueError("Empty sheet")
+        header = _deduplicate_columns(rows[0])
+        df = pd.DataFrame(rows[1:], columns=header)
     except Exception:
         df = pd.read_csv(CSV_PATH)
 
     df.columns = df.columns.str.strip()
 
-    # Rename first two columns
-    df.rename(columns={
-        df.columns[0]: "Last Name",
-        df.columns[1]: "First Name"
-    }, inplace=True)
+    # Standardise the first two columns regardless of what the sheet calls them
+    rename_map = {df.columns[0]: "Last Name", df.columns[1]: "First Name"}
+    df.rename(columns=rename_map, inplace=True)
 
-    # Extract Subteam from Last Name column
+    # ── Subteam extraction ───────────────────────────────────────────────────
+    # Two possible formats:
+    #   A) Google Sheet: subteam name appears as a standalone row in col 0
+    #      (e.g. "Executive", "Loco") — no separate Subteam column.
+    #   B) CSV / processed sheet: a "Subteam" column already exists with values.
+    # Try format A first; fall back to the existing column if nothing found.
+    existing_subteam_col = df["Subteam"].copy() if "Subteam" in df.columns else None
+
     subteam = None
     subteams = []
+    found_headers = False
     for val in df["Last Name"]:
-        if val in ["Executive", "Loco", "Mechanical", "Software", "Coaches"]:
-            subteam = val
-            subteams.append(None)
+        clean = str(val).strip()
+        if clean in _SUBTEAM_NAMES:
+            subteam = clean
+            found_headers = True
+            subteams.append(None)   # mark section header rows for removal
         else:
             subteams.append(subteam)
-    df["Subteam"] = subteams
 
-    # Remove section header rows
-    df = df[df["First Name"].notna() & (df["First Name"] != "")]
+    if found_headers:
+        # Format A — use extracted values
+        df["Subteam"] = subteams
+    elif existing_subteam_col is not None:
+        # Format B — restore the pre-existing column
+        df["Subteam"] = existing_subteam_col
+    else:
+        df["Subteam"] = None
 
-    # Clean % Meetings Attended
+    # ── Row filtering ────────────────────────────────────────────────────────
+    # Remove: section header rows, count/blank rows, coach rows
+    first_name_col = df["First Name"].astype(str).str.strip()
+    df = df[
+        first_name_col.ne("") &           # non-empty
+        first_name_col.notna() &          # not NaN
+        (~first_name_col.str.isnumeric()) # not a count row (e.g. "2", "1")
+    ].copy()
+
+    # Exclude coaches from the member roster
+    df = df[df["Subteam"] != "Coaches"].copy()
+
+    # ── Full Name ────────────────────────────────────────────────────────────
+    df["Full Name"] = (
+        df["First Name"].str.strip() + " " + df["Last Name"].str.strip()
+    )
+
+    # ── % Meetings Attended ──────────────────────────────────────────────────
     if "% Meetings Attended" in df.columns:
         df["% Meetings Attended"] = (
-            df["% Meetings Attended"].astype(str).str.rstrip("%").replace("", "0").astype(float)
+            df["% Meetings Attended"]
+            .astype(str)
+            .str.rstrip("%")
+            .str.strip()
+            .replace({"": "0", "nan": "0"})
+            .astype(float)
         )
     else:
         df["% Meetings Attended"] = 0.0
@@ -68,34 +139,39 @@ def load_data():
 
 
 def get_date_columns(df):
-    """Return list of columns that are actual dates."""
-    skip = {"Subteam", "Last Name", "First Name", "% Meetings Attended"}
-    return [c for c in df.columns if c not in skip]
+    """
+    Return only columns that are actual meeting dates (MM/DD/YY or MM/DD/YY.N format).
+    Uses regex so it's robust to schema changes and never accidentally picks up
+    metadata columns like Full Name or Subteam.
+    """
+    return [c for c in df.columns if _DATE_RE.match(str(c))]
 
 
 def melt_attendance(df):
     """Convert wide attendance table to long format for analysis."""
+    date_cols = get_date_columns(df)
     melted = df.melt(
         id_vars=["First Name", "Last Name", "Subteam"],
+        value_vars=date_cols,
         var_name="Date",
-        value_name="Status"
+        value_name="Status",
     )
 
-    # Keep only date columns
-    melted = melted[melted["Date"].str.contains(r"\d{2}/\d{2}/\d{2}", na=False)]
+    # Parse MM/DD/YY (strip any .1 / .2 suffixes for same-day doubles)
+    melted["Date"] = (
+        melted["Date"]
+        .str.replace(r"\.\d+$", "", regex=True)   # drop .1 / .2 suffix
+        .pipe(pd.to_datetime, format="%m/%d/%y", errors="coerce")
+    )
 
-    # Convert to datetime
-    melted["Date"] = pd.to_datetime(melted["Date"], format="%m/%d/%y", errors="coerce")
-    # Only 'P' counts as present
-    melted["Present"] = (melted["Status"] == "P").astype(int)
-
+    melted["Present"] = melted["Status"].isin(["P", "L"]).astype(int)
     return melted
 
 
 def append_attendance(new_attendance_list):
     """
     Append today's attendance.
-    new_attendance_list = ["P", "A", "L", "O", ...] for each member in order
+    new_attendance_list = ["P", "A", "L", "O", ...] for each member in order.
     """
     df = load_data()
     today_str = datetime.today().strftime("%m/%d/%y")
@@ -112,21 +188,19 @@ def recalc_percentages(df):
     """Recalculate % Meetings Attended for each member."""
     date_cols = get_date_columns(df)
     for i, row in df.iterrows():
-        statuses = [row[c] for c in date_cols if row[c] in ["P", "L"]]
-        total_meetings = [row[c] for c in date_cols if row[c] in ["P", "L", "A", "Z"]]
-        if total_meetings:
-            df.at[i, "% Meetings Attended"] = round(len(statuses) / len(total_meetings) * 100, 2)
-        else:
-            df.at[i, "% Meetings Attended"] = 0.0
+        attended = [row[c] for c in date_cols if str(row[c]).strip() in ("P", "L")]
+        counted  = [row[c] for c in date_cols if str(row[c]).strip() in ("P", "L", "A", "Z")]
+        df.at[i, "% Meetings Attended"] = (
+            round(len(attended) / len(counted) * 100, 2) if counted else 0.0
+        )
     return df
 
 
 def save_data(df, path=CSV_PATH):
-    """Save to Google Sheet (primary) and local CSV (backup)."""
-    # Always write local backup
+    """Save to local CSV (primary backup) and push to Google Sheet."""
+    df = _ordered_columns(df)
     df.to_csv(path, index=False)
 
-    # Write to Google Sheet
     try:
         ws = _get_worksheet()
         data = [df.columns.tolist()] + df.fillna("").astype(str).values.tolist()
@@ -134,3 +208,22 @@ def save_data(df, path=CSV_PATH):
         ws.update(data)
     except Exception as e:
         st.warning(f"Saved locally but could not sync to Google Sheet: {e}")
+
+
+def _ordered_columns(df):
+    """
+    Return df with columns in a consistent order:
+        Last Name | First Name | Full Name | % Meetings Attended | <dates> | Subteam
+    Any unexpected extra columns are appended at the end.
+    """
+    priority = ["Last Name", "First Name", "Full Name", "% Meetings Attended"]
+    date_cols = get_date_columns(df)
+    tail = ["Subteam"]
+
+    ordered = (
+        [c for c in priority if c in df.columns]
+        + date_cols
+        + [c for c in tail if c in df.columns]
+        + [c for c in df.columns if c not in priority + date_cols + tail]
+    )
+    return df[ordered]
