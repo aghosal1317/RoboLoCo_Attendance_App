@@ -15,6 +15,13 @@ SCOPES = [
 _DATE_RE = re.compile(r"^\d{2}/\d{2}/\d{2}")
 _SUBTEAM_NAMES = {"Executive", "Loco", "Mechanical", "Software", "Coaches"}
 
+# Canonical attendance rules — every page must use these, never its own lists.
+# P = Present, L = Late (both count as attended)
+# A = Absent, Z = Excused (count in the denominator)
+# O = Opted out / optional meeting, blank = no record (ignored entirely)
+ATTENDED_CODES = ("P", "L")
+COUNTED_CODES = ("P", "L", "A", "Z")
+
 
 def _get_worksheet():
     if "gcp_service_account" in st.secrets:
@@ -164,7 +171,9 @@ def melt_attendance(df):
         .pipe(pd.to_datetime, format="%m/%d/%y", errors="coerce")
     )
 
-    melted["Present"] = melted["Status"].isin(["P", "L"]).astype(int)
+    melted["Status"] = melted["Status"].astype(str).str.strip()
+    melted["Present"] = melted["Status"].isin(ATTENDED_CODES).astype(int)
+    melted["Counted"] = melted["Status"].isin(COUNTED_CODES).astype(int)
     return melted
 
 
@@ -188,8 +197,8 @@ def recalc_percentages(df):
     """Recalculate % Meetings Attended for each member."""
     date_cols = get_date_columns(df)
     for i, row in df.iterrows():
-        attended = [row[c] for c in date_cols if str(row[c]).strip() in ("P", "L")]
-        counted  = [row[c] for c in date_cols if str(row[c]).strip() in ("P", "L", "A", "Z")]
+        attended = [row[c] for c in date_cols if str(row[c]).strip() in ATTENDED_CODES]
+        counted  = [row[c] for c in date_cols if str(row[c]).strip() in COUNTED_CODES]
         df.at[i, "% Meetings Attended"] = (
             round(len(attended) / len(counted) * 100, 2) if counted else 0.0
         )

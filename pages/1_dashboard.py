@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data_loader import load_data, melt_attendance
+from data_loader import load_data, melt_attendance, recalc_percentages
 from datetime import date, timedelta
 
 # ----------------------------
@@ -13,18 +13,13 @@ melted = melt_attendance(df)
 st.title("Dashboard")
 
 # ----------------------------
-# Calculate % Meetings Attended
+# Calculate % Meetings Attended (canonical rule from data_loader)
 # ----------------------------
-date_cols = [c for c in df.columns if c not in ["First Name", "Last Name", "Subteam"]]
+df = recalc_percentages(df)
 
-df["% Meetings Attended"] = df[date_cols].apply(
-    lambda row: round(
-        sum(1 for x in row if x in ["P", "L"]) /
-        max(sum(1 for x in row if x in ["P", "L", "A", "O"]), 1) * 100,
-        2
-    ),
-    axis=1
-)
+# Meeting-level stats should only consider counted statuses (P/L/A/Z),
+# so optional meetings (O) and blanks don't drag the averages down.
+counted = melted[melted["Counted"] == 1]
 
 # ----------------------------
 # Date range info
@@ -36,7 +31,7 @@ end_date = melted["Date"].max()
 # Latest meeting attendance (most recent date in data)
 # ----------------------------
 latest_meeting_date = melted["Date"].max()
-latest_data = melted[melted["Date"] == latest_meeting_date]
+latest_data = counted[counted["Date"] == latest_meeting_date]
 latest_pct = round(latest_data["Present"].mean() * 100, 1) if len(latest_data) else None
 latest_date_str = latest_meeting_date.strftime("%m/%d/%y")
 
@@ -57,9 +52,9 @@ col1.metric(
     f"{latest_pct}%" if latest_pct is not None else "No data"
 )
 
-prev_week_data = melted[
-    (melted["Date"] >= pd.Timestamp(date.today() - timedelta(days=14))) &
-    (melted["Date"] < pd.Timestamp(date.today() - timedelta(days=7)))
+prev_week_data = counted[
+    (counted["Date"] >= pd.Timestamp(date.today() - timedelta(days=14))) &
+    (counted["Date"] < pd.Timestamp(date.today() - timedelta(days=7)))
 ]
 prev_week_avg = round(prev_week_data["Present"].mean() * 100, 1) if len(prev_week_data) else None
 overall_delta = round(overall_avg - prev_week_avg, 1) if prev_week_avg is not None else None
@@ -79,10 +74,10 @@ col3.metric("Members Below 70%", low_count)
 if low_count > 0:
     st.warning(f"⚠️ {low_count} members are below 70% attendance")
 
-weekly = melted[melted["Date"] >= pd.Timestamp(date.today() - timedelta(days=7))]
-prev_week = melted[
-    (melted["Date"] >= pd.Timestamp(date.today() - timedelta(days=14))) &
-    (melted["Date"] < pd.Timestamp(date.today() - timedelta(days=7)))
+weekly = counted[counted["Date"] >= pd.Timestamp(date.today() - timedelta(days=7))]
+prev_week = counted[
+    (counted["Date"] >= pd.Timestamp(date.today() - timedelta(days=14))) &
+    (counted["Date"] < pd.Timestamp(date.today() - timedelta(days=7)))
 ]
 
 if len(weekly) and len(prev_week):
@@ -95,7 +90,7 @@ if len(weekly) and len(prev_week):
 st.subheader("Weekly Trend")
 
 weekly_trend = (
-    melted.groupby(melted["Date"].dt.to_period("W").dt.start_time)["Present"]
+    counted.groupby(counted["Date"].dt.to_period("W").dt.start_time)["Present"]
     .mean() * 100
 ).reset_index()
 

@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
-from data_loader import load_data, save_data
+from data_loader import load_data, save_data, recalc_percentages, get_date_columns
 from datetime import datetime
 
 st.title("Sync CSV to Google Sheet")
@@ -38,19 +38,14 @@ if st.button("Sync Now"):
             df_to_upload = df.copy()
 
             # Identify attendance columns
-            date_cols = [c for c in df_to_upload.columns if c not in ["First Name", "Last Name", "Subteam", "% Meetings Attended"]]
+            date_cols = get_date_columns(df_to_upload)
 
             # Fill missing values only for past dates
             for c in date_cols:
                 df_to_upload[c] = df_to_upload[c].fillna("O").replace("", "O")
 
-            # Recalculate % Meetings Attended dynamically
-            for i, row in df_to_upload.iterrows():
-                statuses = [row[c] for c in date_cols if row[c] in ["P", "A", "L"]]
-                if statuses:
-                    df_to_upload.at[i, "% Meetings Attended"] = round(statuses.count("P") / len(statuses) * 100, 2)
-                else:
-                    df_to_upload.at[i, "% Meetings Attended"] = 0
+            # Recalculate % Meetings Attended (canonical rule from data_loader)
+            df_to_upload = recalc_percentages(df_to_upload)
 
             # Clear existing sheet and upload
             worksheet.clear()

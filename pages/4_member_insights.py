@@ -41,11 +41,10 @@ else:
     ].copy()
 
     # ----------------------------
-    # Compute dynamic attendance
-    # P/L counts as attended, A/Z counts in denominator, O ignored
+    # Compute dynamic attendance using the canonical Present/Counted
+    # columns from melt_attendance (P/L attended, A/Z in denominator, O ignored)
     # ----------------------------
-    person_data["Attended"] = person_data["Status"].isin(["P", "L"]).astype(int)
-    person_data["Counted"] = person_data["Status"].isin(["P", "L", "A", "Z"]).astype(int)
+    person_data["Attended"] = person_data["Present"]
 
     # Overall % Meetings Attended
     total_attended = person_data["Attended"].sum()
