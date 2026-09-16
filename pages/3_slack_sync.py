@@ -1,6 +1,7 @@
 import streamlit as st
 from slack_integration import get_attendance_by_subteam, SUBTEAM_EMOJIS
-from data_loader import load_data, save_data, recalc_percentages
+from data_loader import load_data, save_data, recalc_percentages, write_attendance, is_saturday
+from settings import get_secret
 from datetime import date
 
 st.title("Sync from Slack")
@@ -23,18 +24,21 @@ if is_optional:
 else:
     st.caption(f"Regular meeting — non-reactors will be marked **A** for {date_str}")
 
+if is_saturday(date_str):
+    st.caption(f"🗓️ {date_str} is a **Saturday** (double session) — attendance will be recorded in two columns and count twice.")
+
 # ----------------------------
 # Message link input
 # ----------------------------
 link = st.text_input("Paste Slack message link")
 
 if st.button("Fetch Attendance"):
+    token = get_secret("SLACK_TOKEN")
     if not link:
         st.warning("Please paste a Slack message link.")
-    elif "SLACK_TOKEN" not in st.secrets:
+    elif not token:
         st.error("SLACK_TOKEN not found in secrets. Add it to .streamlit/secrets.toml or Streamlit Cloud settings.")
     else:
-        token = st.secrets["SLACK_TOKEN"]
         with st.spinner("Fetching reactions from Slack..."):
             results = get_attendance_by_subteam(token, link)
 
@@ -88,46 +92,23 @@ if "slack_results" in st.session_state:
 
     if st.button("Save to Attendance Sheet", type="primary"):
         fresh_df = load_data()
-        fresh_df["Full Name"] = fresh_df["First Name"].str.strip() + " " + fresh_df["Last Name"].str.strip()
-
-        if saved_date_str not in fresh_df.columns:
-            fresh_df[saved_date_str] = ""
-
-        # Build set of all present names (lowercased for matching)
-        present_names = set()
-        for subteam in subteams:
-            for name in results.get(subteam, []):
-                present_names.add(name.strip().lower())
-
-        unmatched = []
-        matched_count = 0
+        present_names = [name for s in subteams for name in results.get(s, [])]
         absent_code = "O" if saved_is_optional else "A"
 
-        for idx, row in fresh_df.iterrows():
-            full_name = row["Full Name"].strip().lower()
-            if full_name in present_names:
-                fresh_df.at[idx, saved_date_str] = "P"
-                matched_count += 1
-            else:
-                fresh_df.at[idx, saved_date_str] = absent_code
-
-        # Warn about Slack names that didn't match anyone in the roster
-        roster_lower = set(fresh_df["Full Name"].str.strip().str.lower())
-        for name in present_names:
-            if name not in roster_lower:
-                unmatched.append(name)
-
+        matched_count, unmatched = write_attendance(fresh_df, saved_date_str, present_names, absent_code)
         fresh_df = recalc_percentages(fresh_df)
-        save_data(fresh_df)
+        saved = save_data(fresh_df)
 
-        st.success(f"✅ Attendance saved for {saved_date_str}! {matched_count} members marked present.")
+        if saved:
+            st.success(f"✅ Attendance saved for {saved_date_str}! {matched_count} members marked present.")
 
         if unmatched:
             st.warning(
-                f"These Slack names didn't match anyone in the roster — check spelling:\n"
+                "These Slack names didn't match anyone in the roster — check spelling:\n"
                 + "\n".join(f"- {n}" for n in unmatched)
             )
 
-        del st.session_state["slack_results"]
-        del st.session_state["slack_date_str"]
-        del st.session_state["slack_is_optional"]
+        if saved:
+            del st.session_state["slack_results"]
+            del st.session_state["slack_date_str"]
+            del st.session_state["slack_is_optional"]

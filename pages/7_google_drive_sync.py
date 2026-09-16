@@ -1,57 +1,48 @@
 import streamlit as st
-import pandas as pd
 import gspread
-from google.oauth2.service_account import Credentials
-from data_loader import load_data, save_data, recalc_percentages, get_date_columns
-from datetime import datetime
+from data_loader import load_data, recalc_percentages, get_date_columns, _get_credentials, _ordered_columns
+from settings import get_sheet_id, sheet_url, parse_sheet_id
 
 st.title("Sync CSV to Google Sheet")
-
-# Load CSV
-df = load_data()
-
-sheet_url = st.text_input(
-    "Enter Google Sheet URL (must be shared with your service account)",
-    "https://docs.google.com/spreadsheets/d/1C9qau6QvJL2o-TcvZupEroCn-F8H7tT0Q7Zbvn1m64Q/edit?usp=sharing"
+st.caption(
+    "Pushes the full attendance dataset to a Google Sheet. Defaults to the sheet "
+    "configured on the Settings page; paste a different URL to export elsewhere."
 )
 
-if st.button("Sync Now"):
-    if not sheet_url or "https://docs.google.com/spreadsheets/d/" not in sheet_url:
-        st.error("Enter a valid Google Sheet URL.")
+# Load current data (from the configured sheet, or the local CSV backup)
+df = load_data()
+
+target = st.text_input(
+    "Google Sheet URL or ID (must be shared with the service account as Editor)",
+    sheet_url(get_sheet_id()),
+)
+
+if st.button("Sync Now", type="primary"):
+    sheet_id = parse_sheet_id(target)
+    if not sheet_id:
+        st.error("Enter a valid Google Sheet URL or spreadsheet ID.")
     else:
         try:
-            # Connect to Google Sheet
-            creds = Credentials.from_service_account_info(
-                st.secrets["gcp_service_account"], #"data/service_account.json" for local testing by Aneesh
-                scopes=[
-                    "https://www.googleapis.com/auth/spreadsheets",
-                    "https://www.googleapis.com/auth/drive"
-                ]
-            )
-            client = gspread.authorize(creds)
+            client = gspread.authorize(_get_credentials())
+            worksheet = client.open_by_key(sheet_id).sheet1
 
-            sheet_id = sheet_url.split("/d/")[1].split("/")[0]
-            sheet = client.open_by_key(sheet_id)
-            worksheet = sheet.sheet1
-
-            # Copy the dataframe
             df_to_upload = df.copy()
 
-            # Identify attendance columns
-            date_cols = get_date_columns(df_to_upload)
-
-            # Fill missing values only for past dates
-            for c in date_cols:
-                df_to_upload[c] = df_to_upload[c].fillna("O").replace("", "O")
+            # Fill blank attendance cells with O so past dates don't show as gaps
+            for c in get_date_columns(df_to_upload):
+                df_to_upload[c] = df_to_upload[c].fillna("").replace("", "O")
 
             # Recalculate % Meetings Attended (canonical rule from data_loader)
-            df_to_upload = recalc_percentages(df_to_upload)
+            df_to_upload = _ordered_columns(recalc_percentages(df_to_upload))
 
             # Clear existing sheet and upload
             worksheet.clear()
-            worksheet.update([df_to_upload.columns.values.tolist()] + df_to_upload.values.tolist())
+            worksheet.update(
+                [df_to_upload.columns.tolist()]
+                + df_to_upload.fillna("").astype(str).values.tolist()
+            )
 
-            st.success("✅ CSV successfully synced to Google Sheet!")
+            st.success(f"✅ Synced {len(df_to_upload)} members to **{worksheet.spreadsheet.title}**.")
 
         except Exception as e:
             st.error(f"Unexpected error: {e}")

@@ -22,6 +22,7 @@ pg = st.navigation([
     st.Page("pages/7_google_drive_sync.py",   title="Google Drive Sync"),
     st.Page("pages/8_generate_qr.py",         title="Generate QR Codes"),
     st.Page("pages/9_qr_checkin.py",          title="QR Check-In"),
+    st.Page("pages/10_settings.py",           title="Settings"),
 ])
 
 pg.run()

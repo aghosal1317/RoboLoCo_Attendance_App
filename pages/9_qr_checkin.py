@@ -1,7 +1,7 @@
 import streamlit as st
 import cv2
 import numpy as np
-from data_loader import load_data, save_data, recalc_percentages
+from data_loader import load_data, save_data, recalc_percentages, write_attendance, is_saturday
 from datetime import date
 
 st.title("QR Check-In")
@@ -24,6 +24,9 @@ if is_optional:
     st.caption(f"Optional meeting — unscanned members will be marked **O** for {date_str}")
 else:
     st.caption(f"Regular meeting — unscanned members will be marked **A** for {date_str}")
+
+if is_saturday(date_str):
+    st.caption(f"🗓️ {date_str} is a **Saturday** (double session) — attendance will be recorded in two columns and count twice.")
 
 st.divider()
 
@@ -50,7 +53,7 @@ if img_file is not None:
     if data:
         prefix = "ROBOLOCO:"
         if data.startswith(prefix):
-            name = data[len(prefix):]
+            name = data[len(prefix):].strip()
             if name not in st.session_state.checked_in:
                 st.session_state.checked_in.add(name)
                 st.success(f"✅ {name} checked in!")
@@ -90,26 +93,16 @@ if st.button("Submit Attendance", type="primary"):
         st.warning("No one has checked in yet.")
     else:
         fresh_df = load_data()
-        fresh_df["Full Name"] = fresh_df["First Name"].str.strip() + " " + fresh_df["Last Name"].str.strip()
-
-        if date_str not in fresh_df.columns:
-            fresh_df[date_str] = ""
-
         absent_code = "O" if is_optional else "A"
-        all_names = fresh_df["Full Name"].tolist()
-        unrecognized = [n for n in st.session_state.checked_in if n not in all_names]
 
-        for _, row in fresh_df.iterrows():
-            name = row["Full Name"]
-            match = fresh_df["Full Name"] == name
-            fresh_df.loc[match, date_str] = "P" if name in st.session_state.checked_in else absent_code
-
+        matched, unrecognized = write_attendance(
+            fresh_df, date_str, st.session_state.checked_in, absent_code
+        )
         fresh_df = recalc_percentages(fresh_df)
-        save_data(fresh_df)
 
-        st.success(f"✅ Attendance saved for {date_str}! {len(st.session_state.checked_in)} present.")
+        if save_data(fresh_df):
+            st.success(f"✅ Attendance saved for {date_str}! {matched} present.")
+            st.session_state.checked_in = set()
 
         if unrecognized:
             st.warning(f"These scanned names weren't in the roster: {', '.join(unrecognized)}")
-
-        st.session_state.checked_in = set()

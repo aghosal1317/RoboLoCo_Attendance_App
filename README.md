@@ -45,6 +45,12 @@ Generates a unique QR code for every member (encoding `ROBOLOCO:{Full Name}`). D
 ### QR Check-In
 Live camera-based QR code scanner built on OpenCV. Members hold up their QR code and are added to a checked-in list in real time. Supports optional meeting mode and submits batch attendance on confirmation.
 
+### Settings
+Shows the active Google Sheet and the service-account email, with from-scratch instructions for setting up a new season's spreadsheet. An admin login lets you test a new sheet and switch the app to it (full instructions are on the Settings page itself). Resolution order: `data/settings.json` (set on the page) → `SHEET_ID` in Streamlit secrets → built-in default.
+
+### Saturday double sessions
+Saturday meetings count twice: every entry page writes the same status to `MM/DD/YY` and `MM/DD/YY.1`. Date columns are always kept in chronological order in the sheet.
+
 ---
 
 ## Attendance Codes
@@ -174,3 +180,14 @@ Deployed on Streamlit Community Cloud with automatic redeployment on every push 
 ## About
 
 Built by Aneesh Ghosal, member of FRC Team 5338 — RoboLoCo.
+
+---
+
+## Running the tests
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest tests -q
+```
+
+The suite needs no network or credentials: the Google Sheet is replaced by an in-memory fake, and page tests drive the real Streamlit pages through `streamlit.testing.AppTest`.

@@ -1,14 +1,11 @@
 import streamlit as st
-from data_loader import load_data, save_data, recalc_percentages
+from data_loader import load_data, save_data, recalc_percentages, write_attendance, is_saturday
 from datetime import date
 
 # ----------------------------
 # Load data
 # ----------------------------
 df = load_data()
-
-# Ensure Full Name exists
-df["Full Name"] = df["First Name"].str.strip() + " " + df["Last Name"].str.strip()
 
 st.title("Take Attendance")
 st.info("Once the Slack Bot is live, this page may no longer be needed.")
@@ -32,46 +29,74 @@ if is_optional:
 else:
     st.caption(f"Regular meeting — absences will be marked **A** for {date_str}")
 
+if is_saturday(date_str):
+    st.caption(f"🗓️ {date_str} is a **Saturday** (double session) — attendance will be recorded in two columns and count twice.")
+
 st.divider()
+
+# ----------------------------
+# Selections live in session state so they survive searching / filtering.
+# (A checkbox that scrolls out of the filtered grid is unmounted and would
+#  otherwise forget its value.)
+# ----------------------------
+if "manual_checked" not in st.session_state:
+    st.session_state.manual_checked = set()
+
+
+def _toggle(name):
+    if st.session_state[f"att_{name}"]:
+        st.session_state.manual_checked.add(name)
+    else:
+        st.session_state.manual_checked.discard(name)
+
+
+all_names = df["Full Name"].tolist()
 
 # ----------------------------
 # Search box
 # ----------------------------
 search_name = st.text_input("Search for a member (leave blank to show all)")
 
-# Filter members by search term (case-insensitive)
 if search_name:
     filtered_df = df[df["Full Name"].str.contains(search_name, case=False, na=False)]
 else:
-    filtered_df = df.copy()
+    filtered_df = df
 
 # ----------------------------
-# Create checkboxes for filtered members (3-column grid)
+# Checkbox grid for filtered members
 # ----------------------------
 names = list(filtered_df["Full Name"])
 cols = st.columns(3)
-attendance = {name: cols[i % 3].checkbox(name) for i, name in enumerate(names)}
+for i, name in enumerate(names):
+    cols[i % 3].checkbox(
+        name,
+        value=name in st.session_state.manual_checked,
+        key=f"att_{name}",
+        on_change=_toggle,
+        args=(name,),
+    )
+
+selected = sorted(n for n in st.session_state.manual_checked if n in all_names)
+st.caption(f"**{len(selected)}** of {len(all_names)} members marked present"
+           + (f": {', '.join(selected)}" if selected else ""))
+
+if selected and st.button("Clear selections"):
+    st.session_state.manual_checked = set()
+    st.rerun()
 
 # ----------------------------
 # Submit button
 # ----------------------------
-if st.button("Submit Attendance"):
+if st.button("Submit Attendance", type="primary"):
     # Re-pull latest from Sheet before writing to avoid overwriting direct edits
     fresh_df = load_data()
-    fresh_df["Full Name"] = fresh_df["First Name"].str.strip() + " " + fresh_df["Last Name"].str.strip()
-
-    if date_str not in fresh_df.columns:
-        fresh_df[date_str] = ""
-
     absent_code = "O" if is_optional else "A"
-
-    for name, present in attendance.items():
-        match = fresh_df["Full Name"] == name
-        if match.any():
-            fresh_df.loc[match, date_str] = "P" if present else absent_code
-        else:
-            st.warning(f"No row found for {name} – check CSV for spelling or extra spaces.")
-
+    matched, unrecognized = write_attendance(fresh_df, date_str, selected, absent_code)
     fresh_df = recalc_percentages(fresh_df)
-    save_data(fresh_df)
-    st.success(f"✅ Attendance saved for {date_str}!")
+    if save_data(fresh_df):
+        st.success(f"✅ Attendance saved for {date_str}! {matched} present, "
+                   f"{len(fresh_df) - matched} marked {absent_code}.")
+        st.session_state.manual_checked = set()
+    if unrecognized:
+        st.warning("These names weren't found in the roster (was it edited since you opened this page?): "
+                   + ", ".join(unrecognized))

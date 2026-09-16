@@ -102,6 +102,16 @@ PAGES = [
         ),
         "use_when": "At the door of a meeting for fast, hands-free check-in.",
     },
+    {
+        "icon": "⚙️",
+        "title": "Settings",
+        "description": (
+            "Shows which Google Sheet the app is reading from and step-by-step instructions "
+            "for setting up a brand-new season spreadsheet from scratch. Switching the active "
+            "sheet requires the admin login."
+        ),
+        "use_when": "At the start of each season, or if the app can't reach the sheet.",
+    },
 ]
 
 # Render in a 3-column grid of bordered cards

@@ -1,3 +1,9 @@
 /data/service_account.json
-/__pycache__/*
+/data/settings.json
+__pycache__/
 /.streamlit/*
+.DS_Store
+.claude/
+COACH_ONEPAGER.md
+DEMO_VIDEO_LAYOUT.md
+HOW_TO_USE.md
