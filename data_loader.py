@@ -300,6 +300,27 @@ def get_columns_for_date(df, date_str):
     return cols
 
 
+def existing_attendance(df, date_str):
+    """
+    What is already recorded for a date, so a page can warn before overwriting.
+
+    Returns {"members": how many people already have a code, "codes": {code: n}}
+    for the base column. {} if the date isn't in the sheet yet.
+    """
+    cols = [c for c in get_date_columns(df) if c == date_str or c.startswith(f"{date_str}.")]
+    if not cols:
+        return {}
+
+    filled = df[cols].fillna("").astype(str).apply(lambda col: col.str.strip())
+    recorded = (filled != "").any(axis=1)
+    if not recorded.any():
+        return {}
+
+    base = filled[cols[0]]
+    codes = base[base != ""].value_counts().to_dict()
+    return {"members": int(recorded.sum()), "codes": {k: int(v) for k, v in codes.items()}}
+
+
 def write_attendance(df, date_str, present_names, absent_code="A",
                      only_subteams=None, uninvited_code="O"):
     """

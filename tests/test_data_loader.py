@@ -356,3 +356,25 @@ def test_write_attendance_records_coaches(fake_ws, monkeypatch):
     dl.write_attendance(df, "01/13/26", ["Coach Smith"], "A")
     assert dict(zip(df["Full Name"], df["01/13/26"])) == \
         {"Eshan Nayak": "A", "Coach Smith": "P"}
+
+
+# ── existing_attendance (overwrite warning) ─────────────────────────────────
+
+def test_existing_attendance_reports_what_is_already_recorded(fake_ws):
+    df = dl.load_data()
+    got = dl.existing_attendance(df, "01/13/26")
+    assert got["members"] == 3                       # Srin's cell is blank
+    assert got["codes"] == {"P": 1, "A": 1, "O": 1}
+
+
+def test_existing_attendance_empty_for_unknown_or_blank_date(fake_ws):
+    df = dl.load_data()
+    assert dl.existing_attendance(df, "01/20/26") == {}   # column doesn't exist
+    df["01/20/26"] = ""
+    assert dl.existing_attendance(df, "01/20/26") == {}   # column exists but empty
+
+
+def test_existing_attendance_counts_saturday_sessions_once(fake_ws):
+    df = dl.load_data()
+    got = dl.existing_attendance(df, "01/10/26")
+    assert got["members"] == 3     # three people recorded, not six across two columns

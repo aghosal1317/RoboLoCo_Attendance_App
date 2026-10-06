@@ -9,6 +9,8 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import conftest
+import streamlit as st
+
 import data_loader as dl
 import settings
 
@@ -30,7 +32,11 @@ def _no_exceptions(at):
 @pytest.fixture(autouse=True)
 def _isolate(fake_ws, tmp_paths, monkeypatch):
     monkeypatch.setattr(dl, "get_service_account_email", lambda: "bot@example.iam.gserviceaccount.com")
+    # pages cache roster reads; a cache surviving into the next test would serve
+    # it the previous test's fake sheet
+    st.cache_data.clear()
     yield
+    st.cache_data.clear()
 
 
 # ── Read-only pages just need to render ─────────────────────────────────────
@@ -434,3 +440,111 @@ def test_dashboard_has_no_coach_panel_when_sheet_has_none(fake_ws):
     at = _run("1_dashboard.py")
     _no_exceptions(at)
     assert not any("Coaches" in e.label for e in at.expander)
+
+
+# ── The double-checker ──────────────────────────────────────────────────────
+
+def _dated(text):
+    r = dict(SUBSET_RESULTS)
+    r["text"] = text
+    return r
+
+
+def test_double_check_flags_a_date_mismatch(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Attendance for Thursday's meeting, 7/23."))
+    at.date_input[0].set_value(TUESDAY).run()          # 01/13/26, not 7/23
+    _no_exceptions(at)
+    errors = " ".join(e.value for e in at.error)
+    assert "Date mismatch" in errors
+    assert "07/23/26" in errors and "01/13/26" in errors
+    # dates only -- no weekday names in the message
+    assert "Thursday" not in errors and "Tuesday" not in errors
+
+
+def test_double_check_button_adopts_the_message_date(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Attendance for Thursday's meeting, 7/23."))
+    at.date_input[0].set_value(TUESDAY).run()
+    [b for b in at.button if "Use the message" in b.label][0].click().run()
+    _no_exceptions(at)
+
+    assert at.date_input[0].value == date(2026, 7, 23)
+    assert any("Date matches" in s.value for s in at.success)
+    assert not any("Date mismatch" in e.value for e in at.error)
+
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+    assert "07/23/26" in fake_ws.rows[0]
+
+
+def test_double_check_confirms_a_matching_date(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Meeting on 01/13/26 everyone"))
+    at.date_input[0].set_value(TUESDAY).run()
+    _no_exceptions(at)
+    assert any("Date matches" in s.value for s in at.success)
+
+
+def test_double_check_warns_before_overwriting_a_recorded_date(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Meeting on 01/13/26"))
+    at.date_input[0].set_value(TUESDAY).run()
+    _no_exceptions(at)
+    warnings = " ".join(w.value for w in at.warning)
+    assert "already has 3 entries" in warnings
+    assert "Saving replaces" in warnings
+
+
+def test_double_check_lists_reactors_missing_from_the_roster(fake_ws):
+    results = _dated("Meeting on 01/15/26")
+    results["Mechanical"] = ["Srin Dasari", "Totally New Person"]
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    _no_exceptions(at)
+    warnings = " ".join(w.value for w in at.warning)
+    assert "aren't on the roster" in warnings
+    assert "Totally New Person" in warnings
+
+
+def test_double_check_says_nothing_is_wrong_when_all_clear(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Meeting on 01/15/26"))
+    at.date_input[0].set_value(date(2026, 1, 15)).run()   # unused date, all names known
+    _no_exceptions(at)
+    assert any("Everything lines up" in c.value for c in at.caption)
+
+
+def test_double_check_handles_a_message_with_no_date(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Practice tonight, react if coming"))
+    _no_exceptions(at)
+    assert any("No date found in the message" in c.value for c in at.caption)
+
+
+def test_date_mismatch_blocks_saving_until_acknowledged(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Attendance for Thursday's meeting, 7/23."))
+    at.date_input[0].set_value(TUESDAY).run()
+    _no_exceptions(at)
+
+    save = [b for b in at.button if b.label == "Save to Attendance Sheet"][0]
+    assert save.disabled
+    confirm = [c for c in at.checkbox if "dates differ" in c.label][0]
+
+    confirm.check().run()
+    save = [b for b in at.button if b.label == "Save to Attendance Sheet"][0]
+    assert not save.disabled
+    save.click().run()
+    _no_exceptions(at)
+    assert any("Attendance saved for 01/13/26" in s.value for s in at.success)
+
+
+def test_no_acknowledgement_needed_when_dates_agree(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=_dated("Meeting on 01/13/26"))
+    at.date_input[0].set_value(TUESDAY).run()
+    _no_exceptions(at)
+    assert not any("dates differ" in c.label for c in at.checkbox)
+    assert not [b for b in at.button if b.label == "Save to Attendance Sheet"][0].disabled
+
+
+def test_unknown_reactor_message_is_singular_for_one_person(fake_ws):
+    results = _dated("Meeting on 01/15/26")
+    results["Mechanical"] = ["Srin Dasari", "Totally New Person"]
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    warnings = " ".join(w.value for w in at.warning)
+    assert "1 person reacted" in warnings and "1 people" not in warnings

@@ -1,6 +1,11 @@
 import streamlit as st
-from slack_integration import get_attendance_by_subteam, SUBTEAM_EMOJIS, SUBTEAM_ALIASES
-from data_loader import load_data, save_data, recalc_percentages, write_attendance, is_saturday
+from slack_integration import (
+    get_attendance_by_subteam, SUBTEAM_EMOJIS, SUBTEAM_ALIASES, find_meeting_date,
+)
+from data_loader import (
+    load_data, save_data, recalc_percentages, write_attendance, is_saturday,
+    existing_attendance,
+)
 from settings import get_secret
 from datetime import date
 
@@ -13,6 +18,12 @@ def label(subteam):
 
 st.title("Sync from Slack")
 
+# The "use the message's date" button can't assign to the date widget's own key
+# after the widget exists, so it stashes the date here and reruns; we apply it
+# before the widget is built.
+if "_pending_meeting_date" in st.session_state:
+    st.session_state["slack_meeting_date"] = st.session_state.pop("_pending_meeting_date")
+
 # ----------------------------
 # Date selector + optional meeting toggle
 # ----------------------------
@@ -22,7 +33,7 @@ with opt_col:
     is_optional = st.toggle("Optional Meeting", value=False,
                             help="Absent members get O (no % deduction) instead of A.")
 with date_col:
-    selected_date = st.date_input("Meeting date", value=date.today())
+    selected_date = st.date_input("Meeting date", value=date.today(), key="slack_meeting_date")
 
 date_str = selected_date.strftime("%m/%d/%y")
 
@@ -57,8 +68,15 @@ if st.button("Fetch Attendance"):
 # ----------------------------
 # Show results if fetched
 # ----------------------------
+@st.cache_data(ttl=60, show_spinner=False)
+def _roster_snapshot():
+    """Roster for the pre-save checks. Cached briefly so reruns don't re-hit Sheets."""
+    return load_data()
+
+
 if "slack_results" in st.session_state:
     results = st.session_state["slack_results"]
+    roster_df = _roster_snapshot()
 
     st.divider()
     st.subheader("Reactions on this message")
@@ -127,6 +145,60 @@ if "slack_results" in st.session_state:
         )
 
     # ----------------------------
+    # Double-check: does the message agree with what the app is about to do?
+    # ----------------------------
+    st.divider()
+    st.subheader("Double-check before saving")
+
+    problems = 0
+    date_conflict = False
+
+    # 1. The date named in the message vs. the date picker
+    msg_date = find_meeting_date(results.get("text", ""), today=date.today())
+    if msg_date is None:
+        st.caption("• No date found in the message — check the date picker above yourself.")
+    elif msg_date == selected_date:
+        st.success(f"• Date matches: the message says **{msg_date.strftime('%m/%d/%y')}**, "
+                   f"and that's what will be written.")
+    else:
+        problems += 1
+        date_conflict = True
+        st.error(
+            f"• **Date mismatch.** The message is about "
+            f"**{msg_date.strftime('%m/%d/%y')}**, but attendance would be written to "
+            f"**{selected_date.strftime('%m/%d/%y')}**."
+        )
+        if st.button(f"Use the message's date ({msg_date.strftime('%m/%d/%y')})"):
+            st.session_state["_pending_meeting_date"] = msg_date
+            st.rerun()
+
+    # 2. Is something already recorded for this date?
+    already = existing_attendance(roster_df, date_str)
+    if already:
+        problems += 1
+        breakdown = ", ".join(f"{n}×{c}" for c, n in sorted(already["codes"].items()))
+        st.warning(
+            f"• **{date_str} already has {already['members']} entries** ({breakdown}). "
+            "Saving replaces every one of them."
+        )
+
+    # 3. Reacting names that aren't on the roster — shown before the write, not after
+    roster_lower = set(roster_df["Full Name"].str.strip().str.lower())
+    reacted = {n.strip().lower(): n for s_ in ALL_SUBTEAMS for n in results.get(s_, [])}
+    strangers = sorted(orig for low, orig in reacted.items() if low not in roster_lower)
+    if strangers:
+        problems += 1
+        st.warning(
+            f"• **{len(strangers)} {'person' if len(strangers) == 1 else 'people'} reacted "
+            "who aren't on the roster** — they won't be recorded. Add them to the sheet, "
+            "or check the spelling of their Slack display name:\n"
+            + "\n".join(f"    - {n}" for n in strangers)
+        )
+
+    if not problems:
+        st.caption("Everything lines up.")
+
+    # ----------------------------
     # Match against roster + submit
     # ----------------------------
     st.subheader("Submit Attendance")
@@ -141,7 +213,15 @@ if "slack_results" in st.session_state:
     if not invited:
         st.warning("Select at least one subteam before saving.")
 
-    if st.button("Save to Attendance Sheet", type="primary", disabled=not invited):
+    override = True
+    if date_conflict:
+        override = st.checkbox(
+            f"I know the dates differ — save to {date_str} anyway",
+            help="The message names a different date. Tick this only if the picker is the one you want.",
+        )
+
+    if st.button("Save to Attendance Sheet", type="primary",
+                 disabled=not invited or not override):
         fresh_df = load_data()
         present_names = [name for s in ALL_SUBTEAMS for name in results.get(s, [])]
         absent_code = "O" if is_optional else "A"
@@ -167,4 +247,5 @@ if "slack_results" in st.session_state:
             )
 
         if saved:
+            _roster_snapshot.clear()   # the sheet just changed
             del st.session_state["slack_results"]

@@ -1,3 +1,6 @@
+import re
+from datetime import date
+
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
@@ -176,3 +179,49 @@ def get_attendance_by_subteam(token: str, link: str) -> dict:
     result["invited"] = find_invited_subteams(message["text"]) or reacted_subteams
     result["text"] = message["text"]
     return result
+
+
+# ── Reading the meeting details out of the message ──────────────────────────
+
+# "7/23", "9/29", "12/20/25" — but not the "3-7pm" style time ranges, which
+# have no slash, and not a bare number inside a longer run of digits.
+_DATE_IN_TEXT_RE = re.compile(r"(?<![\d/])(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?(?![\d/])")
+
+
+def find_meeting_date(text, today=None):
+    """
+    The meeting date named in a message — "Attendance for Thursday's meeting,
+    7/23" → date(2026, 7, 23). Returns None if the message has no date.
+
+    Messages almost never include the year, so the year is chosen to put the
+    date nearest today: read in January, a "12/20" means the December just
+    gone, not the one eleven months away.
+    """
+    today = today or date.today()
+
+    for m in _DATE_IN_TEXT_RE.finditer(str(text or "")):
+        month, day, year = int(m.group(1)), int(m.group(2)), m.group(3)
+        if not (1 <= month <= 12 and 1 <= day <= 31):
+            continue
+
+        if year:
+            y = int(year)
+            y += 2000 if y < 100 else 0
+            try:
+                return date(y, month, day)
+            except ValueError:
+                continue
+
+        best = None
+        for y in (today.year - 1, today.year, today.year + 1):
+            try:
+                candidate = date(y, month, day)
+            except ValueError:      # e.g. 2/29 in a non-leap year
+                continue
+            if best is None or abs((candidate - today).days) < abs((best - today).days):
+                best = candidate
+        if best is not None:
+            return best
+
+    return None
+

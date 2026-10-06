@@ -32,6 +32,12 @@ Paste a Slack message link and the app fetches all emoji reactions via the Slack
 
 Matches Slack display names against the roster and warns about any unresolved names.
 
+Before saving, a **double-check** panel compares the message against what the app is about to write: the
+date named in the message vs. the date picker (with a one-click fix, and saving gated behind an
+acknowledgement when they disagree), whether that date already has attendance that would be replaced, and
+any reactor who isn't on the roster. Only dates are compared; meeting times like "3-7pm" are ignored and
+never mistaken for a date.
+
 Messages don't always invite the whole team. The app reads the emoji in the message text to detect which subteams were asked (`:hammer_and_wrench:` / 🛠 glyphs both work) and shows them pre-selected — the text rather than the reactions, so a group that was invited but hasn't reacted yet isn't mistaken for uninvited; members of a subteam that was never invited are recorded as `O` rather than `A`, so a meeting they weren't asked to doesn't dent their percentage. The selection is editable before saving.
 
 ### Member Insights

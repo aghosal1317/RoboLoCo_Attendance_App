@@ -188,3 +188,50 @@ def test_build_and_programming_wording_maps_to_roster_names():
     assert si.find_invited_subteams("Programming, react :computer:") == {"Software"}
     assert si.SUBTEAM_ALIASES["Mechanical"] == "Mechanical / Build"
     assert si.SUBTEAM_ALIASES["Software"] == "Software / Programming"
+
+
+# ── Reading the meeting details out of the message ──────────────────────────
+
+from datetime import date as _date
+
+TODAY = _date(2026, 10, 6)
+
+
+def test_finds_date_in_both_real_messages():
+    assert si.find_meeting_date(SUBSET_TEXT, TODAY) == _date(2026, 7, 23)
+    assert si.find_meeting_date(WORKSHOP_TEXT, TODAY) == _date(2026, 9, 29)
+
+
+def test_time_ranges_are_not_mistaken_for_dates():
+    """'from 3-7pm' and 'from 5-7pm' must not parse as 3/7 or 5/7."""
+    assert si.find_meeting_date("The meeting is from 3-7pm, no date given", TODAY) is None
+    assert si.find_meeting_date("Meeting 9/29. The meeting is from 5-7pm.", TODAY) == _date(2026, 9, 29)
+
+
+def test_meeting_slash_workshop_is_not_a_date():
+    assert si.find_meeting_date("Attendance for Tomorrow's meeting/workshop", TODAY) is None
+
+
+def test_year_is_inferred_as_the_nearest_one():
+    # read in January, "12/20" is the December just gone
+    assert si.find_meeting_date("Meeting 12/20", _date(2026, 1, 5)) == _date(2025, 12, 20)
+    # read in December, "1/10" is the January coming
+    assert si.find_meeting_date("Meeting 1/10", _date(2025, 12, 20)) == _date(2026, 1, 10)
+
+
+def test_explicit_year_is_respected():
+    assert si.find_meeting_date("Practice 1/10/26", TODAY) == _date(2026, 1, 10)
+    assert si.find_meeting_date("Practice 1/10/2026", TODAY) == _date(2026, 1, 10)
+
+
+def test_impossible_dates_are_skipped():
+    assert si.find_meeting_date("Meeting 13/45", TODAY) is None
+    assert si.find_meeting_date("Meeting 2/29", TODAY) is None   # no leap year nearby
+
+
+def test_no_date_at_all():
+    assert si.find_meeting_date("Practice tonight, be there", TODAY) is None
+    assert si.find_meeting_date("", TODAY) is None
+    assert si.find_meeting_date(None, TODAY) is None
+
+
