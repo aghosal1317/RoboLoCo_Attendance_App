@@ -54,14 +54,15 @@ st.markdown(
     """
 - Column **A must be last names and B must be first names** — the app goes by position for those two.
 - **`Subteam`** must be spelled exactly like that. Values: `Executive`, `Loco`, `Mechanical`,
-  `Software`, `Mentors`. `Coaches` is also recognised, but coaches are kept out of the member
-  roster and attendance stats — add them only if you want them listed, not scored.
+  `Software`, `Mentors`, `Coaches`. Coaches are recorded like everyone else but are exempt from the
+  70% rule — they're left out of the team average and the "below 70%" list.
 - `Full Name` and `% Meetings Attended` can be left empty — the app fills them in.
 - **Don't add any date columns.** They're created automatically the first time attendance is taken
   (`MM/DD/YY`, with a second `MM/DD/YY.1` column for Saturday double sessions).
 
 **3. Add one row per member** starting on row 2. Names must be **unique**, and `First Last` must match the
-member's Slack display name for Slack Sync to work. Leave coaches off — the app ignores/removes them.
+member's Slack display name for Slack Sync to work. Include coaches with `Coaches` as their subteam if you
+want their attendance tracked.
 
 > *Alternative layout:* you can instead put a subteam name (`Executive`, `Loco`, …) alone in column A as a
 > section-header row with that subteam's members underneath and no `Subteam` column. The app reads that too,

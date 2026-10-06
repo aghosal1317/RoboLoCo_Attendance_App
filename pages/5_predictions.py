@@ -56,7 +56,7 @@ for name, res in results.items():
         "": "⭐ Recommended" if name == best_model_name else "",
     })
 
-st.dataframe(pd.DataFrame(comp_rows), use_container_width=True, hide_index=True)
+st.dataframe(pd.DataFrame(comp_rows), width='stretch', hide_index=True)
 
 if best_model_name == "Random Forest":
     explanation = (
@@ -117,7 +117,7 @@ display_df = (
 
 st.dataframe(
     display_df,
-    use_container_width=True,
+    width='stretch',
     hide_index=True,
     column_config={
         "Attend Probability": st.column_config.ProgressColumn(
@@ -147,7 +147,7 @@ fig_hist.update_traces(opacity=0.75)
 fig_hist.add_vline(
     x=50, line_dash="dash", line_color="red", annotation_text="50% cutoff"
 )
-st.plotly_chart(fig_hist, use_container_width=True)
+st.plotly_chart(fig_hist, width='stretch')
 
 st.divider()
 
@@ -171,7 +171,7 @@ else:
     )
     fig_risk.add_vline(x=50, line_dash="dash", line_color="red")
     fig_risk.update_layout(yaxis_title="", xaxis_range=[0, 100])
-    st.plotly_chart(fig_risk, use_container_width=True)
+    st.plotly_chart(fig_risk, width='stretch')
 
 st.divider()
 
@@ -193,7 +193,7 @@ if feat_imp is not None:
         title="Feature Importance",
     )
     fig_imp.update_layout(yaxis={"categoryorder": "total ascending"})
-    st.plotly_chart(fig_imp, use_container_width=True)
+    st.plotly_chart(fig_imp, width='stretch')
 
     st.caption(
         "Higher importance = the model leans on that signal more. "

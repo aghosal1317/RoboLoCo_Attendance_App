@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 import data_loader as dl
+import conftest
 from conftest import FakeWorksheet, FORMAT_A_ROWS, FORMAT_B_ROWS
 
 
@@ -31,13 +32,14 @@ def test_load_format_b_sheet(fake_ws):
     assert (df["01/08/26"] == ["P", "A", "", ""]).all()
 
 
-def test_load_format_a_sheet_strips_headers_counts_blanks_and_coaches(monkeypatch):
+def test_load_format_a_sheet_strips_headers_counts_and_blanks(monkeypatch):
     ws = FakeWorksheet(FORMAT_A_ROWS)
     monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
     df = dl.load_data()
-    assert df["Full Name"].tolist() == ["Eshan Nayak", "JD Queen"]
-    assert df["Subteam"].tolist() == ["Executive", "Loco"]
-    assert df["% Meetings Attended"].tolist() == [100.0, 50.0]
+    # coaches are kept on the roster; header/count/blank rows are not
+    assert df["Full Name"].tolist() == ["Eshan Nayak", "JD Queen", "Coach Smith"]
+    assert df["Subteam"].tolist() == ["Executive", "Loco", "Coaches"]
+    assert df["% Meetings Attended"].tolist()[:2] == [100.0, 50.0]
     # duplicate date headers become .1 columns
     assert dl.get_date_columns(df) == ["01/08/26", "01/10/26", "01/10/26.1"]
     assert df.loc[1, ["01/10/26", "01/10/26.1"]].tolist() == ["P", "L"]
@@ -235,7 +237,7 @@ def test_inspect_sheet_format_a(monkeypatch):
     monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
     r = dl.inspect_sheet("id")
     assert r["layout"].startswith("section headers")
-    assert r["members"] == 2
+    assert r["members"] == 3
 
 
 def test_get_worksheet_uses_configured_sheet_id(monkeypatch):
@@ -305,7 +307,7 @@ def test_partial_invite_leaves_uninvited_percentages_untouched(fake_ws):
 
 # ── Mentors / Coaches in the roster ─────────────────────────────────────────
 
-def test_mentors_section_is_a_real_roster_subteam(monkeypatch):
+def test_mentors_and_coaches_are_both_roster_subteams(monkeypatch):
     ws = FakeWorksheet([
         ["Last Name", "First Name", "% Meetings Attended", "01/08/26"],
         ["Mentors", "", "", ""],
@@ -317,12 +319,13 @@ def test_mentors_section_is_a_real_roster_subteam(monkeypatch):
     ])
     monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
     df = dl.load_data()
-    assert df["Full Name"].tolist() == ["Priya Rao", "Eshan Nayak"]
-    assert df["Subteam"].tolist() == ["Mentors", "Software"]   # Mentors kept
-    assert "Coach Smith" not in df["Full Name"].tolist()        # Coaches dropped
+    assert df["Full Name"].tolist() == ["Priya Rao", "Eshan Nayak", "Coach Smith"]
+    assert df["Subteam"].tolist() == ["Mentors", "Software", "Coaches"]
+    # coaches are recorded, but excluded from threshold stats
+    assert dl.members_only(df)["Full Name"].tolist() == ["Priya Rao", "Eshan Nayak"]
 
 
-def test_coaches_never_counted_in_roster_stats(monkeypatch):
+def test_coach_attendance_is_recorded_but_exempt_from_team_stats(monkeypatch):
     ws = FakeWorksheet([
         ["Last Name", "First Name", "Subteam", "01/08/26"],
         ["Nayak", "Eshan", "Software", "A"],
@@ -330,5 +333,26 @@ def test_coaches_never_counted_in_roster_stats(monkeypatch):
     ])
     monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
     df = dl.recalc_percentages(dl.load_data())
-    assert len(df) == 1
-    assert df["% Meetings Attended"].tolist() == [0.0]   # the coach's P doesn't lift the average
+
+    # the coach is on the roster with a real percentage of their own
+    assert len(df) == 2
+    assert dict(zip(df["Full Name"], df["% Meetings Attended"])) == \
+        {"Eshan Nayak": 0.0, "Coach Smith": 100.0}
+
+    # but the team average and follow-up list ignore them
+    members = dl.members_only(df)
+    assert members["Full Name"].tolist() == ["Eshan Nayak"]
+    assert members["% Meetings Attended"].mean() == 0.0
+
+
+def test_write_attendance_records_coaches(fake_ws, monkeypatch):
+    ws = conftest.FakeWorksheet([
+        ["Last Name", "First Name", "Subteam", "01/08/26"],
+        ["Nayak", "Eshan", "Software", "P"],
+        ["Smith", "Coach", "Coaches", "P"],
+    ])
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    df = dl.load_data()
+    dl.write_attendance(df, "01/13/26", ["Coach Smith"], "A")
+    assert dict(zip(df["Full Name"], df["01/13/26"])) == \
+        {"Eshan Nayak": "A", "Coach Smith": "P"}

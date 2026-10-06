@@ -14,7 +14,7 @@ from_backup = df.attrs.get("source") == "csv"
 edited_df = st.data_editor(
     df,
     num_rows="dynamic",  # allow adding/removing rows
-    use_container_width=True,
+    width='stretch',
 )
 
 # Save button — disabled when the data didn't come from the live sheet, so a

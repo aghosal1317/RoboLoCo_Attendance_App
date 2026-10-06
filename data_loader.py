@@ -17,10 +17,11 @@ SCOPES = [
 _DATE_RE = re.compile(r"^(\d{2}/\d{2}/\d{2})(?:\.(\d+))?$")
 _SUBTEAM_NAMES = {"Executive", "Loco", "Mechanical", "Software", "Mentors", "Coaches"}
 
-# Groups that may appear in the sheet but are not attendance-tracked members.
-# Coaches are held to no attendance threshold, so counting them would distort
-# the team average and the "below 70%" list on the Dashboard.
-NON_ROSTER_SUBTEAMS = ("Coaches",)
+# Subteams whose attendance is recorded but which are exempt from the 70%
+# member threshold. Coaches are asked to react and their attendance is tracked
+# like anyone else's, but they aren't held to a requirement — so counting them
+# in the team average or the "below 70%" list would distort both.
+NON_THRESHOLD_SUBTEAMS = ("Coaches",)
 
 # Canonical attendance rules — every page must use these, never its own lists.
 # P = Present, L = Late (both count as attended)
@@ -95,7 +96,8 @@ def _process_roster(df):
            with subteam names (Executive / Loco / ...) as standalone rows in col 0.
         B) App-written sheet / CSV: a "Subteam" column already exists.
 
-    Section header rows, count rows, blank rows and Coaches are stripped.
+    Section header rows, count rows and blank rows are stripped. Coaches are
+    kept (their attendance is recorded) but are exempt from team stats.
     """
     df = df.copy()
     df.columns = df.columns.astype(str).str.strip()
@@ -136,9 +138,6 @@ def _process_roster(df):
         first_name_col.str.lower().ne("nan") &
         (~first_name_col.str.isnumeric())
     ].copy()
-    # Coaches may appear in the sheet but are not attendance-tracked members
-    df = df[~df["Subteam"].isin(NON_ROSTER_SUBTEAMS)].copy()
-
     df["Last Name"] = df["Last Name"].fillna("").astype(str).str.strip()
     df["First Name"] = df["First Name"].fillna("").astype(str).str.strip()
     df["Subteam"] = df["Subteam"].where(df["Subteam"].notna(), None)
@@ -267,6 +266,16 @@ def melt_attendance(df):
     melted["Present"] = melted["Status"].isin(ATTENDED_CODES).astype(int)
     melted["Counted"] = melted["Status"].isin(COUNTED_CODES).astype(int)
     return melted
+
+
+def members_only(df):
+    """
+    Roster rows subject to the attendance threshold — everyone except coaches.
+
+    Use this for team-level stats (average attendance, "below 70%"); use the
+    full frame for recording attendance, so coaches still get P/A written.
+    """
+    return df[~df["Subteam"].isin(NON_THRESHOLD_SUBTEAMS)].copy()
 
 
 def is_saturday(date_str):

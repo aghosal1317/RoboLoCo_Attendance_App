@@ -27,7 +27,7 @@ Paste a Slack message link and the app fetches all emoji reactions via the Slack
 - 🎨 `art` → Loco
 - 💼 `briefcase` → Executive ("Leadership")
 - 📝 `memo` / `pencil` → Mentors
-- 🏫 `school` → Coaches — shown on screen but never recorded, since coaches aren't attendance-tracked members
+- 🏫 `school` → Coaches — recorded like any subteam, but exempt from the 70% threshold and excluded from team-level stats
 - 👎 thumbs-down variants → Won't attend
 
 Matches Slack display names against the roster and warns about any unresolved names.

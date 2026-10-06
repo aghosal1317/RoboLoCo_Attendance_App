@@ -15,11 +15,6 @@ SUBTEAM_EMOJIS = {
     "school": "Coaches",
 }
 
-# Subteams that are tracked for attendance but kept out of the member roster.
-# Coaches aren't members: including them would skew the team average and the
-# "below 70%" list. Their reactions are still shown, just not recorded.
-NON_ROSTER_SUBTEAMS = ("Coaches",)
-
 # How a group is worded in meeting messages vs. what the roster calls it.
 # Messages say "Build"/"Programming"/"Leadership"; the sheet says
 # "Mechanical"/"Software"/"Executive". Display only — the roster name is

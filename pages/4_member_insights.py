@@ -86,4 +86,4 @@ else:
         title="Cumulative Attendance Over Time"
     )
     fig.update_layout(yaxis_range=[0, 100], xaxis_title="Date", yaxis_title="Attendance (%)")
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')

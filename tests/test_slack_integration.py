@@ -172,12 +172,14 @@ def test_mentors_invited_even_with_zero_reactions(fake_slack):
             len(r["Loco"]), len(r["Coaches"]), len(r["wont_attend"])) == (11, 14, 10, 2, 2, 12)
 
 
-def test_coaches_emoji_recognised_separately():
+def test_coach_and_mentor_emoji_recognised():
+    import data_loader as dl
     assert si.SUBTEAM_EMOJIS["school"] == "Coaches"
     assert si.SUBTEAM_EMOJIS["memo"] == "Mentors"
     assert si.SUBTEAM_EMOJIS["pencil"] == "Mentors"
-    assert "Coaches" in si.NON_ROSTER_SUBTEAMS
-    assert "Mentors" not in si.NON_ROSTER_SUBTEAMS
+    # both are recorded; only coaches are exempt from the 70% threshold
+    assert "Coaches" in dl.NON_THRESHOLD_SUBTEAMS
+    assert "Mentors" not in dl.NON_THRESHOLD_SUBTEAMS
 
 
 def test_build_and_programming_wording_maps_to_roster_names():

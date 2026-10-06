@@ -8,6 +8,7 @@ from datetime import date
 import pytest
 from streamlit.testing.v1 import AppTest
 
+import conftest
 import data_loader as dl
 import settings
 
@@ -227,9 +228,9 @@ def test_settings_test_connection_reports_failure(tmp_paths, monkeypatch):
 
 # ── Slack Sync: messages that only invite some subteams ─────────────────────
 
-from slack_integration import NON_ROSTER_SUBTEAMS, SUBTEAM_EMOJIS
+from slack_integration import SUBTEAM_EMOJIS
 
-ROSTER_SUBTEAMS = sorted(set(SUBTEAM_EMOJIS.values()) - set(NON_ROSTER_SUBTEAMS))
+ALL_SUBTEAMS = sorted(set(SUBTEAM_EMOJIS.values()))
 
 SUBSET_RESULTS = {
     "Mechanical": ["Srin Dasari"], "Software": ["Julia Miller"],
@@ -277,7 +278,7 @@ def test_slack_sync_user_can_override_uninvited_to_absent(fake_ws):
 def test_slack_sync_user_can_add_a_subteam_the_message_missed(fake_ws):
     at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))
     at.date_input[0].set_value(TUESDAY).run()
-    at.multiselect[0].set_value(ROSTER_SUBTEAMS).run()
+    at.multiselect[0].set_value(ALL_SUBTEAMS).run()
     _no_exceptions(at)
     assert not at.radio   # nothing is uninvited any more, so no code picker
     [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
@@ -291,7 +292,7 @@ def test_slack_sync_user_can_add_a_subteam_the_message_missed(fake_ws):
 
 def test_slack_sync_full_team_message_marks_everyone(fake_ws):
     results = dict(SUBSET_RESULTS)
-    results["invited"] = set(ROSTER_SUBTEAMS)
+    results["invited"] = set(ALL_SUBTEAMS)
     at = _run("3_slack_sync.py", slack_results=results)
     at.date_input[0].set_value(TUESDAY).run()
     _no_exceptions(at)
@@ -360,28 +361,26 @@ WORKSHOP_RESULTS = {
 }
 
 
-def test_slack_sync_workshop_message_lists_coaches_without_recording_them(fake_ws):
+def test_slack_sync_records_coaches_like_any_other_subteam(fake_ws):
     at = _run("3_slack_sync.py", slack_results=dict(WORKSHOP_RESULTS))
     at.date_input[0].set_value(TUESDAY).run()
     _no_exceptions(at)
 
-    # Coaches are not an option to mark attendance for
-    assert "Coaches" not in at.multiselect[0].options
-    # but they are surfaced so you can see who answered
-    assert any("Coaches who reacted" in e.label for e in at.expander)
+    # Coaches are selectable and recorded
+    assert "Coaches" in at.multiselect[0].options
+    assert "Coaches" in at.multiselect[0].value
 
     [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
     _no_exceptions(at)
-
-    # the two coach names are not reported as roster errors
-    warnings = " ".join(w.value for w in at.warning)
-    assert "Coach Smith" not in warnings and "Coach Jones" not in warnings
 
     header = fake_ws.rows[0]
     col = header.index("01/13/26")
     by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
     assert by_name == {"Eshan Nayak": "P", "JD Queen": "P",
                        "Julia Miller": "P", "Srin Dasari": "P"}
+    # the fake roster has no coach rows, so they're flagged as needing adding
+    warnings = " ".join(w.value for w in at.warning)
+    assert "coach smith" in warnings.lower()
 
 
 def test_slack_sync_mentors_invited_with_no_reactions_is_not_treated_as_uninvited(fake_ws):
@@ -398,3 +397,40 @@ def test_slack_sync_labels_use_the_slack_wording(fake_ws):
     assert "Mechanical / Build" in labels
     assert "Software / Programming" in labels
     assert "Executive / Leadership" in labels
+
+
+# ── Coaches on the Dashboard ────────────────────────────────────────────────
+
+COACH_ROWS = [
+    ["Last Name", "First Name", "Full Name", "% Meetings Attended", "01/13/26", "Subteam"],
+    ["Nayak", "Eshan", "Eshan Nayak", "", "A", "Software"],
+    ["Queen", "JD", "JD Queen", "", "A", "Loco"],
+    ["Smith", "Coach", "Coach Smith", "", "P", "Coaches"],
+]
+
+
+def test_dashboard_excludes_coaches_from_team_stats(monkeypatch):
+    ws = conftest.FakeWorksheet(COACH_ROWS)
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    at = _run("1_dashboard.py")
+    _no_exceptions(at)
+
+    metrics = {m.label: m.value for m in at.metric}
+    # both members were absent; the coach's P must not lift the average off 0
+    assert metrics["Overall Average"] == "0.0%"
+    assert metrics["Members Below 70%"] == "2"      # the coach is not a third
+    assert "100.0%" not in metrics["Attendance on 01/13/26"]
+
+
+def test_dashboard_shows_coaches_in_their_own_panel(monkeypatch):
+    ws = conftest.FakeWorksheet(COACH_ROWS)
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    at = _run("1_dashboard.py")
+    _no_exceptions(at)
+    assert any("Coaches (1)" in e.label and "not held to 70%" in e.label for e in at.expander)
+
+
+def test_dashboard_has_no_coach_panel_when_sheet_has_none(fake_ws):
+    at = _run("1_dashboard.py")
+    _no_exceptions(at)
+    assert not any("Coaches" in e.label for e in at.expander)

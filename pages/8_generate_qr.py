@@ -47,7 +47,7 @@ for row_start in range(0, len(names), cols_per_row):
     for col, name in zip(cols, row_names):
         qr_bytes = make_qr_bytes(name)
         with col:
-            st.image(qr_bytes, caption=name, use_container_width=True)
+            st.image(qr_bytes, caption=name, width='stretch')
             st.download_button(
                 label="Download",
                 data=qr_bytes,

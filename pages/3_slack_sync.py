@@ -1,14 +1,10 @@
 import streamlit as st
-from slack_integration import (
-    get_attendance_by_subteam, SUBTEAM_EMOJIS, SUBTEAM_ALIASES, NON_ROSTER_SUBTEAMS,
-)
+from slack_integration import get_attendance_by_subteam, SUBTEAM_EMOJIS, SUBTEAM_ALIASES
 from data_loader import load_data, save_data, recalc_percentages, write_attendance, is_saturday
 from settings import get_secret
 from datetime import date
 
 ALL_SUBTEAMS = sorted(set(SUBTEAM_EMOJIS.values()))
-# Subteams whose attendance is actually recorded (coaches aren't roster members)
-ROSTER_SUBTEAMS = [s for s in ALL_SUBTEAMS if s not in NON_ROSTER_SUBTEAMS]
 
 
 def label(subteam):
@@ -72,24 +68,12 @@ if "slack_results" in st.session_state:
             st.write(results["text"])
 
     # Per-subteam breakdown
-    cols = st.columns(len(ROSTER_SUBTEAMS))
-    for col, subteam in zip(cols, ROSTER_SUBTEAMS):
+    cols = st.columns(len(ALL_SUBTEAMS))
+    for col, subteam in zip(cols, ALL_SUBTEAMS):
         members = results.get(subteam, [])
         col.metric(label(subteam), len(members))
         for name in sorted(members):
             col.write(f"✅ {name}")
-
-    # Groups that react but aren't tracked on the roster (coaches)
-    for subteam in NON_ROSTER_SUBTEAMS:
-        reacted = results.get(subteam, [])
-        if reacted:
-            with st.expander(f"{subteam} who reacted ({len(reacted)}) — not recorded"):
-                st.caption(
-                    f"{subteam} aren't attendance-tracked members, so nothing is written "
-                    "for them. Listed here so you can see who responded."
-                )
-                for name in sorted(reacted):
-                    st.write(f"• {name}")
 
     # Won't attend
     wont = results.get("wont_attend", [])
@@ -101,7 +85,7 @@ if "slack_results" in st.session_state:
             st.caption("No one marked won't attend.")
 
     total_present = sum(len(results.get(s, [])) for s in ALL_SUBTEAMS)
-    st.info(f"**{total_present}** members reacted as attending across all subteams.")
+    st.info(f"**{total_present}** people reacted as attending across all groups.")
 
     st.divider()
 
@@ -109,9 +93,8 @@ if "slack_results" in st.session_state:
     # Which subteams this meeting was for
     # ----------------------------
     st.subheader("Who was this meeting for?")
-    detected_all = set(results.get("invited") or ALL_SUBTEAMS)
-    detected = sorted(s for s in detected_all if s in ROSTER_SUBTEAMS)
-    uninvited_detected = [s for s in ROSTER_SUBTEAMS if s not in detected]
+    detected = sorted(set(results.get("invited") or ALL_SUBTEAMS))
+    uninvited_detected = [s for s in ALL_SUBTEAMS if s not in detected]
 
     if uninvited_detected:
         st.info(
@@ -124,13 +107,13 @@ if "slack_results" in st.session_state:
 
     invited = st.multiselect(
         "Subteams this meeting applied to",
-        options=ROSTER_SUBTEAMS,
+        options=ALL_SUBTEAMS,
         default=detected,
         format_func=label,
         help="Members of any subteam left out of this list are not marked absent for this meeting.",
     )
 
-    uninvited = [s for s in ROSTER_SUBTEAMS if s not in invited]
+    uninvited = [s for s in ALL_SUBTEAMS if s not in invited]
     uninvited_code = "O"
     if uninvited:
         uninvited_code = st.radio(
@@ -160,7 +143,7 @@ if "slack_results" in st.session_state:
 
     if st.button("Save to Attendance Sheet", type="primary", disabled=not invited):
         fresh_df = load_data()
-        present_names = [name for s in ROSTER_SUBTEAMS for name in results.get(s, [])]
+        present_names = [name for s in ALL_SUBTEAMS for name in results.get(s, [])]
         absent_code = "O" if is_optional else "A"
 
         matched_count, unmatched = write_attendance(

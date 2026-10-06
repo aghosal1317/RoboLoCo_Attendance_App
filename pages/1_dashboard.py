@@ -1,21 +1,21 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from data_loader import load_data, melt_attendance, recalc_percentages
+from data_loader import load_data, melt_attendance, recalc_percentages, members_only, NON_THRESHOLD_SUBTEAMS
 from datetime import date, timedelta
 
 # ----------------------------
 # Load data
 # ----------------------------
-df = load_data()
+# Percentages are computed for everyone (coaches included, so their own record
+# is accurate), but every team-level number below uses members_only(): coaches
+# are tracked, not held to the 70% threshold, so counting them would distort
+# the team average and the follow-up list.
+full_df = recalc_percentages(load_data())
+df = members_only(full_df)
 melted = melt_attendance(df)
 
 st.title("Dashboard")
-
-# ----------------------------
-# Calculate % Meetings Attended (canonical rule from data_loader)
-# ----------------------------
-df = recalc_percentages(df)
 
 # Meeting-level stats should only consider counted statuses (P/L/A/Z),
 # so optional meetings (O) and blanks don't drag the averages down.
@@ -104,12 +104,25 @@ fig.update_layout(
     title="Weekly Attendance Trend"
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width='stretch')
 
 # ----------------------------
 # Action Center (BOTTOM)
 # ----------------------------
 st.subheader("Action Center")
+
+coaches = full_df[full_df["Subteam"].isin(NON_THRESHOLD_SUBTEAMS)]
+if not coaches.empty:
+    with st.expander(f"Coaches ({len(coaches)}) — tracked, not held to 70%"):
+        st.caption(
+            "Coach attendance is recorded like anyone else's, but coaches are left out "
+            "of the team average and the follow-up list above."
+        )
+        st.dataframe(
+            coaches[["First Name", "Last Name", "% Meetings Attended"]]
+            .sort_values("% Meetings Attended", ascending=False),
+            width='stretch', hide_index=True,
+        )
 
 with st.expander(f"Members Below 70% ({low_count})", expanded=low_count > 0):
     if low_count > 0:
@@ -117,6 +130,6 @@ with st.expander(f"Members Below 70% ({low_count})", expanded=low_count > 0):
             ["First Name", "Last Name", "Subteam", "% Meetings Attended"]
         ].sort_values("% Meetings Attended")
 
-        st.dataframe(display_df, use_container_width=True)
+        st.dataframe(display_df, width='stretch')
     else:
         st.success("All members are above 70% attendance.")
