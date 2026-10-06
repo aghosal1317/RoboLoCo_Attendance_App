@@ -22,13 +22,17 @@ Manual check-in interface with a searchable checkbox grid of all members. Suppor
 
 ### Slack Sync
 Paste a Slack message link and the app fetches all emoji reactions via the Slack API and maps them to subteams:
-- 🔨 `hammer_and_wrench` → Mechanical
-- 💻 `computer` → Software
+- 🛠 `hammer_and_wrench` / `wrench` → Mechanical (written "Build" in some messages)
+- 💻 `computer` → Software ("Programming")
 - 🎨 `art` → Loco
-- 💼 `briefcase` → Executive
+- 💼 `briefcase` → Executive ("Leadership")
+- 📝 `memo` / `pencil` → Mentors
+- 🏫 `school` → Coaches — shown on screen but never recorded, since coaches aren't attendance-tracked members
 - 👎 thumbs-down variants → Won't attend
 
 Matches Slack display names against the roster and warns about any unresolved names.
+
+Messages don't always invite the whole team. The app reads the emoji in the message text to detect which subteams were asked (`:hammer_and_wrench:` / 🛠 glyphs both work) and shows them pre-selected — the text rather than the reactions, so a group that was invited but hasn't reacted yet isn't mistaken for uninvited; members of a subteam that was never invited are recorded as `O` rather than `A`, so a meeting they weren't asked to doesn't dent their percentage. The selection is editable before saving.
 
 ### Member Insights
 Per-member profile with overall attendance percentage, last attended date, and consecutive meetings missed. Includes an individual cumulative attendance trend chart over time.

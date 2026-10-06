@@ -15,7 +15,12 @@ SCOPES = [
 ]
 
 _DATE_RE = re.compile(r"^(\d{2}/\d{2}/\d{2})(?:\.(\d+))?$")
-_SUBTEAM_NAMES = {"Executive", "Loco", "Mechanical", "Software", "Coaches"}
+_SUBTEAM_NAMES = {"Executive", "Loco", "Mechanical", "Software", "Mentors", "Coaches"}
+
+# Groups that may appear in the sheet but are not attendance-tracked members.
+# Coaches are held to no attendance threshold, so counting them would distort
+# the team average and the "below 70%" list on the Dashboard.
+NON_ROSTER_SUBTEAMS = ("Coaches",)
 
 # Canonical attendance rules — every page must use these, never its own lists.
 # P = Present, L = Late (both count as attended)
@@ -131,7 +136,8 @@ def _process_roster(df):
         first_name_col.str.lower().ne("nan") &
         (~first_name_col.str.isnumeric())
     ].copy()
-    df = df[df["Subteam"] != "Coaches"].copy()
+    # Coaches may appear in the sheet but are not attendance-tracked members
+    df = df[~df["Subteam"].isin(NON_ROSTER_SUBTEAMS)].copy()
 
     df["Last Name"] = df["Last Name"].fillna("").astype(str).str.strip()
     df["First Name"] = df["First Name"].fillna("").astype(str).str.strip()
@@ -285,11 +291,19 @@ def get_columns_for_date(df, date_str):
     return cols
 
 
-def write_attendance(df, date_str, present_names, absent_code="A"):
+def write_attendance(df, date_str, present_names, absent_code="A",
+                     only_subteams=None, uninvited_code="O"):
     """
-    Record one meeting for the whole roster: everyone in present_names gets
-    P, everyone else gets absent_code (A for a regular meeting, O for an
-    optional one). Saturday dates are written to both session columns.
+    Record one meeting for the roster: everyone in present_names gets P,
+    everyone else gets absent_code (A for a regular meeting, O for an optional
+    one). Saturday dates are written to both session columns.
+
+    only_subteams restricts who the meeting applied to. A Slack message often
+    invites just some subteams ("Mech react 🛠, Software 💻, Leadership 💼" and
+    no Loco), and members of a subteam that was never asked must not be marked
+    absent — they get uninvited_code instead (O by default, so their percentage
+    is untouched). Anyone who did show up is still marked P regardless of
+    subteam. only_subteams=None means the whole roster was invited.
 
     Returns (matched_count, unrecognized_names). Every page that records a
     meeting goes through here so they can't drift apart.
@@ -299,8 +313,14 @@ def write_attendance(df, date_str, present_names, absent_code="A"):
     roster_lower = df["Full Name"].str.strip().str.lower()
 
     is_present = roster_lower.isin(present_lower)
+    codes = is_present.map({True: "P", False: absent_code})
+
+    if only_subteams is not None:
+        invited = df["Subteam"].isin(set(only_subteams))
+        codes = codes.where(invited | is_present, uninvited_code)
+
     for c in date_cols:
-        df[c] = is_present.map({True: "P", False: absent_code})
+        df[c] = codes
 
     unrecognized = sorted(present_lower - set(roster_lower))
     return int(is_present.sum()), unrecognized

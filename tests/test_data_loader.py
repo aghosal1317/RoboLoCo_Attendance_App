@@ -252,3 +252,83 @@ def test_get_worksheet_uses_configured_sheet_id(monkeypatch):
     assert dl._get_worksheet() == "WS"
     assert dl._get_worksheet("EXPLICIT") == "WS"
     assert opened == ["CONFIGURED", "EXPLICIT"]
+
+
+# ── write_attendance with a partial invite (Slack messages that skip subteams) ──
+
+def test_write_attendance_uninvited_subteam_gets_o_not_a(fake_ws):
+    """The 7/23 case: Mech/Software/Exec invited, Loco never asked."""
+    df = dl.load_data()
+    matched, _ = dl.write_attendance(
+        df, "01/13/26", ["Eshan Nayak"], absent_code="A",
+        only_subteams=["Mechanical", "Software", "Executive"],
+    )
+    assert matched == 1
+    by_name = dict(zip(df["Full Name"], df["01/13/26"]))
+    assert by_name["Eshan Nayak"] == "P"      # Executive, reacted
+    assert by_name["Julia Miller"] == "A"     # Software, invited, silent
+    assert by_name["Srin Dasari"] == "A"      # Mechanical, invited, silent
+    assert by_name["JD Queen"] == "O"         # Loco, never invited — not penalised
+
+
+def test_write_attendance_uninvited_code_is_configurable(fake_ws):
+    df = dl.load_data()
+    dl.write_attendance(df, "01/13/26", [], absent_code="A",
+                        only_subteams=["Software"], uninvited_code="A")
+    assert set(df["01/13/26"]) == {"A"}
+
+
+def test_present_member_marked_p_even_if_subteam_uninvited(fake_ws):
+    """Someone who turned up counts, whatever their subteam."""
+    df = dl.load_data()
+    dl.write_attendance(df, "01/13/26", ["JD Queen"], absent_code="A",
+                        only_subteams=["Software"])
+    by_name = dict(zip(df["Full Name"], df["01/13/26"]))
+    assert by_name["JD Queen"] == "P"         # Loco, uninvited, but showed up
+    assert by_name["Eshan Nayak"] == "O"      # Executive, uninvited, absent
+
+
+def test_only_subteams_none_means_whole_roster(fake_ws):
+    df = dl.load_data()
+    dl.write_attendance(df, "01/13/26", ["Eshan Nayak"], absent_code="A", only_subteams=None)
+    assert df["01/13/26"].tolist() == ["P", "A", "A", "A"]
+
+
+def test_partial_invite_leaves_uninvited_percentages_untouched(fake_ws):
+    df = dl.load_data()
+    before = dict(zip(df["Full Name"], dl.recalc_percentages(df)["% Meetings Attended"]))
+    dl.write_attendance(df, "01/15/26", [], absent_code="A", only_subteams=["Software"])
+    after = dict(zip(df["Full Name"], dl.recalc_percentages(df)["% Meetings Attended"]))
+    assert after["JD Queen"] == before["JD Queen"]        # Loco: O, unchanged
+    assert after["Julia Miller"] < before["Julia Miller"] or before["Julia Miller"] == 0
+
+
+# ── Mentors / Coaches in the roster ─────────────────────────────────────────
+
+def test_mentors_section_is_a_real_roster_subteam(monkeypatch):
+    ws = FakeWorksheet([
+        ["Last Name", "First Name", "% Meetings Attended", "01/08/26"],
+        ["Mentors", "", "", ""],
+        ["Rao", "Priya", "", "P"],
+        ["Software", "", "", ""],
+        ["Nayak", "Eshan", "", "P"],
+        ["Coaches", "", "", ""],
+        ["Smith", "Coach", "", "P"],
+    ])
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    df = dl.load_data()
+    assert df["Full Name"].tolist() == ["Priya Rao", "Eshan Nayak"]
+    assert df["Subteam"].tolist() == ["Mentors", "Software"]   # Mentors kept
+    assert "Coach Smith" not in df["Full Name"].tolist()        # Coaches dropped
+
+
+def test_coaches_never_counted_in_roster_stats(monkeypatch):
+    ws = FakeWorksheet([
+        ["Last Name", "First Name", "Subteam", "01/08/26"],
+        ["Nayak", "Eshan", "Software", "A"],
+        ["Smith", "Coach", "Coaches", "P"],
+    ])
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    df = dl.recalc_percentages(dl.load_data())
+    assert len(df) == 1
+    assert df["% Meetings Attended"].tolist() == [0.0]   # the coach's P doesn't lift the average

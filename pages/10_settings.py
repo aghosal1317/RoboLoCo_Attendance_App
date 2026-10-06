@@ -53,7 +53,9 @@ st.table(
 st.markdown(
     """
 - Column **A must be last names and B must be first names** — the app goes by position for those two.
-- **`Subteam`** must be spelled exactly like that. Values: `Executive`, `Loco`, `Mechanical`, `Software`.
+- **`Subteam`** must be spelled exactly like that. Values: `Executive`, `Loco`, `Mechanical`,
+  `Software`, `Mentors`. `Coaches` is also recognised, but coaches are kept out of the member
+  roster and attendance stats — add them only if you want them listed, not scored.
 - `Full Name` and `% Meetings Attended` can be left empty — the app fills them in.
 - **Don't add any date columns.** They're created automatically the first time attendance is taken
   (`MM/DD/YY`, with a second `MM/DD/YY.1` column for Saturday double sessions).

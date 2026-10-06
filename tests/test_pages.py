@@ -119,8 +119,9 @@ def test_take_attendance_does_not_push_when_loaded_from_csv(fake_ws, tmp_paths, 
 def test_slack_sync_save(fake_ws):
     results = {"Mechanical": ["Srin Dasari"], "Software": ["julia miller"], "Loco": [],
                "Executive": ["Ghost Person"], "wont_attend": ["JD Queen"]}
-    at = _run("3_slack_sync.py", slack_results=results, slack_date_str="01/13/26", slack_is_optional=False)
+    at = _run("3_slack_sync.py", slack_results=results)
     _no_exceptions(at)
+    at.date_input[0].set_value(TUESDAY).run()
     [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
     _no_exceptions(at)
 
@@ -222,3 +223,178 @@ def test_settings_test_connection_reports_failure(tmp_paths, monkeypatch):
     [b for b in at.button if b.label == "Test connection"][0].click().run()
     assert any("Couldn't read that sheet" in e.value for e in at.error)
     assert not tmp_paths["settings"].exists()
+
+
+# ── Slack Sync: messages that only invite some subteams ─────────────────────
+
+from slack_integration import NON_ROSTER_SUBTEAMS, SUBTEAM_EMOJIS
+
+ROSTER_SUBTEAMS = sorted(set(SUBTEAM_EMOJIS.values()) - set(NON_ROSTER_SUBTEAMS))
+
+SUBSET_RESULTS = {
+    "Mechanical": ["Srin Dasari"], "Software": ["Julia Miller"],
+    "Executive": ["Eshan Nayak"], "Loco": [],
+    "wont_attend": ["JD Queen"],
+    "invited": {"Mechanical", "Software", "Executive"},
+    "text": "Mech, react :hammer_and_wrench:. Software react :computer:. Leadership, react :briefcase:.",
+}
+
+
+def test_slack_sync_partial_invite_does_not_mark_loco_absent(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))
+    at.date_input[0].set_value(TUESDAY).run()
+    _no_exceptions(at)
+
+    # the page tells the user Loco was left out, and pre-selects the other three
+    assert any("Loco" in i.value for i in at.info)
+    assert sorted(at.multiselect[0].value) == ["Executive", "Mechanical", "Software"]
+
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    header = fake_ws.rows[0]
+    col = header.index("01/13/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name["Eshan Nayak"] == "P"     # Executive, reacted
+    assert by_name["Julia Miller"] == "P"    # Software, reacted
+    assert by_name["Srin Dasari"] == "P"     # Mechanical, reacted
+    assert by_name["JD Queen"] == "O"        # Loco, never invited
+
+
+def test_slack_sync_user_can_override_uninvited_to_absent(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))
+    at.date_input[0].set_value(TUESDAY).run()
+    at.radio[0].set_value("A").run()
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    header = fake_ws.rows[0]
+    col = header.index("01/13/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name["JD Queen"] == "A"
+
+
+def test_slack_sync_user_can_add_a_subteam_the_message_missed(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))
+    at.date_input[0].set_value(TUESDAY).run()
+    at.multiselect[0].set_value(ROSTER_SUBTEAMS).run()
+    _no_exceptions(at)
+    assert not at.radio   # nothing is uninvited any more, so no code picker
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    header = fake_ws.rows[0]
+    col = header.index("01/13/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name["JD Queen"] == "A"   # Loco now invited and silent
+
+
+def test_slack_sync_full_team_message_marks_everyone(fake_ws):
+    results = dict(SUBSET_RESULTS)
+    results["invited"] = set(ROSTER_SUBTEAMS)
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(TUESDAY).run()
+    _no_exceptions(at)
+    assert any("every subteam" in c.value for c in at.caption)
+    assert not at.radio
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+
+    header = fake_ws.rows[0]
+    col = header.index("01/13/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name["JD Queen"] == "A"
+
+
+def test_slack_sync_blocks_save_with_no_subteams_selected(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))
+    at.date_input[0].set_value(TUESDAY).run()
+    at.multiselect[0].set_value([]).run()
+    _no_exceptions(at)
+    assert any("at least one subteam" in w.value for w in at.warning)
+    assert fake_ws.updates == []
+
+
+def test_slack_sync_uses_the_date_picker_not_the_fetch_time_date(fake_ws):
+    """Changing the date after fetching must change where attendance is written."""
+    at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))
+    at.date_input[0].set_value(TUESDAY).run()
+    assert any("Saving to **01/13/26**" in c.value for c in at.caption)
+
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    assert any("Saving to **01/15/26**" in c.value for c in at.caption)
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    header = fake_ws.rows[0]
+    assert "01/15/26" in header
+    col = header.index("01/15/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name["Eshan Nayak"] == "P"
+    # the fetch-time default date was never written
+    assert all(r[header.index("01/13/26")] in ("P", "A", "L", "O", "Z", "") for r in fake_ws.rows[1:])
+    assert any("Attendance saved for 01/15/26" in s.value for s in at.success)
+
+
+def test_slack_sync_optional_toggle_applies_at_save_time(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))
+    at.date_input[0].set_value(TUESDAY)
+    at.toggle[0].set_value(True).run()
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    header = fake_ws.rows[0]
+    col = header.index("01/13/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name["Srin Dasari"] == "P"   # reacted
+    assert by_name["JD Queen"] == "O"      # Loco, uninvited
+
+
+WORKSHOP_RESULTS = {
+    "Mechanical": ["Srin Dasari"], "Software": ["Julia Miller"],
+    "Executive": ["Eshan Nayak"], "Loco": ["JD Queen"], "Mentors": [],
+    "Coaches": ["Coach Smith", "Coach Jones"],
+    "wont_attend": [],
+    "invited": {"Mechanical", "Software", "Loco", "Executive", "Mentors", "Coaches"},
+    "text": "Build :hammer_and_wrench:. Programming :computer:. Loco :art:. "
+            "Leadership :briefcase:. Mentors :memo:. Coaches :school:.",
+}
+
+
+def test_slack_sync_workshop_message_lists_coaches_without_recording_them(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(WORKSHOP_RESULTS))
+    at.date_input[0].set_value(TUESDAY).run()
+    _no_exceptions(at)
+
+    # Coaches are not an option to mark attendance for
+    assert "Coaches" not in at.multiselect[0].options
+    # but they are surfaced so you can see who answered
+    assert any("Coaches who reacted" in e.label for e in at.expander)
+
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    # the two coach names are not reported as roster errors
+    warnings = " ".join(w.value for w in at.warning)
+    assert "Coach Smith" not in warnings and "Coach Jones" not in warnings
+
+    header = fake_ws.rows[0]
+    col = header.index("01/13/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name == {"Eshan Nayak": "P", "JD Queen": "P",
+                       "Julia Miller": "P", "Srin Dasari": "P"}
+
+
+def test_slack_sync_mentors_invited_with_no_reactions_is_not_treated_as_uninvited(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(WORKSHOP_RESULTS))
+    _no_exceptions(at)
+    assert "Mentors" in at.multiselect[0].value          # pre-ticked from the text
+    assert not at.radio                                   # nothing uninvited -> no code picker
+    assert any("every subteam" in c.value for c in at.caption)
+
+
+def test_slack_sync_labels_use_the_slack_wording(fake_ws):
+    at = _run("3_slack_sync.py", slack_results=dict(WORKSHOP_RESULTS))
+    labels = [m.label for m in at.metric]
+    assert "Mechanical / Build" in labels
+    assert "Software / Programming" in labels
+    assert "Executive / Leadership" in labels

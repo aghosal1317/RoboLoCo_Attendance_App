@@ -29,7 +29,7 @@ from sklearn.model_selection import cross_val_score
 
 warnings.filterwarnings("ignore")
 
-SUBTEAM_MAP = {"Executive": 0, "Loco": 1, "Mechanical": 2, "Software": 3}
+SUBTEAM_MAP = {"Executive": 0, "Loco": 1, "Mechanical": 2, "Software": 3, "Mentors": 4}
 
 FEATURE_NAMES = [
     "prev_1",
