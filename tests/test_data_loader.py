@@ -378,3 +378,82 @@ def test_existing_attendance_counts_saturday_sessions_once(fake_ws):
     df = dl.load_data()
     got = dl.existing_attendance(df, "01/10/26")
     assert got["members"] == 3     # three people recorded, not six across two columns
+
+
+# ── Subteam naming mismatches (the "everything written as O" bug) ───────────
+
+def test_canonical_subteam_maps_slack_wording_to_roster_names():
+    assert dl.canonical_subteam("Build") == "Mechanical"
+    assert dl.canonical_subteam(" programming ") == "Software"
+    assert dl.canonical_subteam("LEADERSHIP") == "Executive"
+    assert dl.canonical_subteam("Mentor") == "Mentors"
+    assert dl.canonical_subteam("Loco") == "Loco"
+    # unknown names survive, stripped, so a custom subteam still matches itself
+    assert dl.canonical_subteam("  Pit Crew ") == "Pit Crew"
+    assert dl.canonical_subteam(None) == ""
+
+
+def test_sheet_using_slack_wording_is_not_all_marked_o():
+    """
+    Regression: the sheet said Build/Programming/Leadership while the app asked
+    for Mechanical/Software/Executive, so no row matched, every member counted
+    as uninvited, and the whole team was written O on a non-optional meeting.
+    """
+    df = pd.DataFrame({
+        "Full Name": ["A One", "B Two", "C Three", "D Four"],
+        "Subteam": ["Build", "Programming", "Loco", "Leadership"],
+    })
+    dl.write_attendance(df, "01/13/26", ["A One"], absent_code="A",
+                        only_subteams=["Mechanical", "Software", "Loco", "Executive"])
+    assert df["01/13/26"].tolist() == ["P", "A", "A", "A"]
+
+
+def test_completely_unrecognised_subteams_fall_back_to_whole_team():
+    """If the invite list matches nobody, ignore it rather than blanking everyone."""
+    df = pd.DataFrame({
+        "Full Name": ["A One", "B Two"],
+        "Subteam": ["Red Team", "Blue Team"],
+    })
+    dl.write_attendance(df, "01/13/26", ["A One"], absent_code="A",
+                        only_subteams=["Mechanical", "Software"])
+    assert df["01/13/26"].tolist() == ["P", "A"]      # not ["P", "O"]
+
+
+def test_partial_match_still_honours_the_invite_list():
+    """A real partial invite must keep working — only the safety net is new."""
+    df = pd.DataFrame({
+        "Full Name": ["A One", "B Two", "C Three"],
+        "Subteam": ["Build", "Loco", "Programming"],
+    })
+    dl.write_attendance(df, "01/13/26", [], absent_code="A",
+                        only_subteams=["Mechanical", "Software"])
+    assert df["01/13/26"].tolist() == ["A", "O", "A"]   # Loco genuinely uninvited
+
+
+def test_unmatched_subteams_reports_names_absent_from_the_sheet():
+    df = pd.DataFrame({"Full Name": ["A", "B"], "Subteam": ["Build", "Loco"]})
+    assert dl.unmatched_subteams(df, ["Mechanical", "Loco"]) == []
+    assert dl.unmatched_subteams(df, ["Mechanical", "Software", "Coaches"]) == ["Coaches", "Software"]
+
+
+def test_subteam_matching_ignores_case_and_whitespace():
+    df = pd.DataFrame({"Full Name": ["A", "B"], "Subteam": [" mechanical ", "LOCO"]})
+    dl.write_attendance(df, "01/13/26", [], absent_code="A",
+                        only_subteams=["Mechanical", "Loco"])
+    assert df["01/13/26"].tolist() == ["A", "A"]
+
+
+def test_blank_subteam_column_does_not_mark_everyone_o():
+    """
+    Regression for the reported sheet: a new season sheet whose Subteam column
+    wasn't filled in. Every row failed the invited test, so the whole team was
+    written O on a non-optional meeting and every percentage read 0.0.
+    """
+    df = pd.DataFrame({
+        "Full Name": ["A One", "B Two", "C Three", "D Four"],
+        "Subteam": ["", "", None, None],
+    })
+    dl.write_attendance(df, "10/06/26", ["A One", "C Three"], absent_code="A",
+                        only_subteams=["Mechanical", "Software", "Loco", "Executive"])
+    assert df["10/06/26"].tolist() == ["P", "A", "P", "A"]
+    assert "O" not in df["10/06/26"].tolist()

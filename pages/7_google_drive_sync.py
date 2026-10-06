@@ -28,9 +28,12 @@ if st.button("Sync Now", type="primary"):
 
             df_to_upload = df.copy()
 
-            # Fill blank attendance cells with O so past dates don't show as gaps
+            # Blank cells stay blank. They used to be filled with O, which reads
+            # as "opted out" — but a blank means "no record", and overwriting the
+            # whole history with O made every unrecorded meeting look deliberate.
+            # Neither counts toward a percentage, so nothing is lost by leaving them.
             for c in get_date_columns(df_to_upload):
-                df_to_upload[c] = df_to_upload[c].fillna("").replace("", "O")
+                df_to_upload[c] = df_to_upload[c].fillna("")
 
             # Recalculate % Meetings Attended (canonical rule from data_loader)
             df_to_upload = _ordered_columns(recalc_percentages(df_to_upload))

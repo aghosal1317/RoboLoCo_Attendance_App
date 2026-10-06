@@ -4,7 +4,7 @@ from slack_integration import (
 )
 from data_loader import (
     load_data, save_data, recalc_percentages, write_attendance, is_saturday,
-    existing_attendance,
+    existing_attendance, unmatched_subteams,
 )
 from settings import get_secret
 from datetime import date
@@ -204,7 +204,21 @@ if "slack_results" in st.session_state:
             + "\n".join(f"    - {n}" for n in strangers)
         )
 
-    # 4. Anyone who will be recorded "didn't apply" instead of absent
+    # 4. Do the app's subteam names exist in the sheet at all?
+    # A subteam with no members is normal (most sheets have no Mentors), so only
+    # the total mismatch is worth flagging — that's the case where the invite
+    # list is meaningless and the whole-team fallback kicks in.
+    missing = unmatched_subteams(roster_df, invited)
+    if invited and len(missing) == len(invited):
+        problems += 1
+        st.warning(
+            "• **None of the selected subteams match anyone in the sheet.** The `Subteam` "
+            f"column uses different names ({', '.join(sorted(set(roster_df['Subteam'].dropna()))[:4])}…), "
+            f"so the invite list is being ignored and everyone absent will be marked **{absent_code}**. "
+            "That's the safe outcome, but fix the sheet's subteam names to use the invite list."
+        )
+
+    # 5. Anyone who will be recorded "didn't apply" instead of absent
     if uninvited and uninvited_code != absent_code:
         skipped = int(roster_df["Subteam"].isin(uninvited).sum())
         if skipped:

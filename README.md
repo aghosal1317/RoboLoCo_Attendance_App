@@ -47,7 +47,7 @@ Per-member profile with overall attendance percentage, last attended date, and c
 Spreadsheet-style data editor for correcting any past record. Supports all five status codes with direct cell editing and one-click save back to the master CSV.
 
 ### Google Drive Sync
-One-click export of the full attendance dataset to a shared Google Sheet. Recalculates all percentages before upload and fills missing date columns with `O`.
+One-click export of the full attendance dataset to a shared Google Sheet. Recalculates all percentages before upload. Blank cells are left blank rather than being filled with `O`.
 
 ### Generate QR Codes
 Generates a unique QR code for every member (encoding `ROBOLOCO:{Full Name}`). Displayed in a searchable, filterable grid with individual PNG download per member.

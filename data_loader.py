@@ -23,6 +23,30 @@ _SUBTEAM_NAMES = {"Executive", "Loco", "Mechanical", "Software", "Mentors", "Coa
 # in the team average or the "below 70%" list would distort both.
 NON_THRESHOLD_SUBTEAMS = ("Coaches",)
 
+# Sheets and Slack messages word the same group differently — the roster might
+# say "Mechanical" while messages say "Build". Subteams are matched through
+# this map so a naming difference can never silently mis-record anyone.
+SUBTEAM_CANONICAL = {
+    "mechanical": "Mechanical", "mech": "Mechanical", "build": "Mechanical",
+    "software": "Software", "programming": "Software", "coding": "Software",
+    "code": "Software", "programmers": "Software",
+    "loco": "Loco",
+    "executive": "Executive", "exec": "Executive", "leadership": "Executive",
+    "lead": "Executive", "leads": "Executive",
+    "mentors": "Mentors", "mentor": "Mentors",
+    "coaches": "Coaches", "coach": "Coaches",
+}
+
+
+def canonical_subteam(value):
+    """
+    Map any spelling of a group to its canonical name — "build" → "Mechanical",
+    " leadership " → "Executive". Unrecognised names come back stripped but
+    otherwise untouched, so a custom subteam still matches itself.
+    """
+    cleaned = str(value or "").strip()
+    return SUBTEAM_CANONICAL.get(cleaned.lower(), cleaned)
+
 # Canonical attendance rules — every page must use these, never its own lists.
 # P = Present, L = Late (both count as attended)
 # A = Absent, Z = Excused (count in the denominator)
@@ -300,6 +324,15 @@ def get_columns_for_date(df, date_str):
     return cols
 
 
+def unmatched_subteams(df, subteams):
+    """
+    Which of `subteams` match no one on the roster — i.e. the app and the sheet
+    disagree about what the groups are called. Used to warn before saving.
+    """
+    on_roster = set(df["Subteam"].map(canonical_subteam))
+    return sorted(s for s in subteams if canonical_subteam(s) not in on_roster)
+
+
 def existing_attendance(df, date_str):
     """
     What is already recorded for a date, so a page can warn before overwriting.
@@ -346,8 +379,14 @@ def write_attendance(df, date_str, present_names, absent_code="A",
     codes = is_present.map({True: "P", False: absent_code})
 
     if only_subteams is not None:
-        invited = df["Subteam"].isin(set(only_subteams))
-        codes = codes.where(invited | is_present, uninvited_code)
+        wanted = {canonical_subteam(s) for s in only_subteams}
+        invited = df["Subteam"].map(canonical_subteam).isin(wanted)
+        # Safety net: if the invite list matches nobody at all, the names don't
+        # line up with this sheet (e.g. the sheet says "Build", the app asked
+        # for "Mechanical"). Applying it would record the entire team as
+        # "didn't apply" — far worse than ignoring the restriction, so ignore it.
+        if invited.any():
+            codes = codes.where(invited | is_present, uninvited_code)
 
     for c in date_cols:
         df[c] = codes

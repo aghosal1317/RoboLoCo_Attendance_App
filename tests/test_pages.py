@@ -584,3 +584,56 @@ def test_unknown_reactor_message_is_singular_for_one_person(fake_ws):
     at.date_input[0].set_value(date(2026, 1, 15)).run()
     warnings = " ".join(w.value for w in at.warning)
     assert "1 person reacted" in warnings and "1 people" not in warnings
+
+
+def test_double_check_warns_when_no_subteam_name_matches_the_sheet(monkeypatch):
+    """The sheet uses Slack wording; the app's invite list matches nothing."""
+    ws = conftest.FakeWorksheet([
+        ["Last Name", "First Name", "Subteam", "01/13/26"],
+        ["One", "A", "Build", ""],
+        ["Two", "B", "Programming", ""],
+    ])
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    results = _dated("Meeting on 01/15/26")
+    results["invited"] = {"Coaches"}            # matches no roster row
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    _no_exceptions(at)
+    warnings = " ".join(w.value for w in at.warning)
+    assert "None of the selected subteams match" in warnings
+
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+    header = ws.rows[0]
+    col = header.index("01/15/26")
+    codes = [r[col] for r in ws.rows[1:]]
+    assert "O" not in codes, f"safety net must prevent a whole-team O, got {codes}"
+
+
+def test_drive_sync_does_not_turn_blank_cells_into_o(monkeypatch):
+    """
+    Regression: Sync Now used to rewrite every blank cell in every date column
+    to O, so one click made the whole sheet look opted-out.
+    """
+    src = conftest.FakeWorksheet([
+        ["Last Name", "First Name", "Subteam", "01/08/26", "01/13/26"],
+        ["One", "A", "Loco", "P", ""],
+        ["Two", "B", "Loco", "", ""],
+    ])
+    dest = conftest.FakeWorksheet([])
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: src)
+    monkeypatch.setattr(dl, "_get_credentials", lambda: None)
+
+    class Client:
+        def open_by_key(self, key):
+            return type("S", (), {"sheet1": dest})()
+    import gspread
+    monkeypatch.setattr(gspread, "authorize", lambda creds: Client())
+
+    at = _run("7_google_drive_sync.py")
+    _no_exceptions(at)
+    [b for b in at.button if b.label == "Sync Now"][0].click().run()
+    _no_exceptions(at)
+
+    written = [c for row in dest.rows[1:] for c in row]
+    assert "O" not in written, f"blank cells must stay blank, got {dest.rows}"
