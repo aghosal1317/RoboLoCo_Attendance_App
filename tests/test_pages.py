@@ -504,10 +504,46 @@ def test_double_check_lists_reactors_missing_from_the_roster(fake_ws):
 
 
 def test_double_check_says_nothing_is_wrong_when_all_clear(fake_ws):
-    at = _run("3_slack_sync.py", slack_results=_dated("Meeting on 01/15/26"))
+    results = _dated("Meeting on 01/15/26")
+    results["invited"] = set(ALL_SUBTEAMS)                # whole team asked
+    at = _run("3_slack_sync.py", slack_results=results)
     at.date_input[0].set_value(date(2026, 1, 15)).run()   # unused date, all names known
     _no_exceptions(at)
     assert any("Everything lines up" in c.value for c in at.caption)
+
+
+def test_double_check_counts_members_who_will_get_o_instead_of_a(fake_ws):
+    """The reported bug: people silently recorded O on a non-optional meeting."""
+    at = _run("3_slack_sync.py", slack_results=dict(SUBSET_RESULTS))   # Loco not invited
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    _no_exceptions(at)
+    warnings = " ".join(w.value for w in at.warning)
+    assert "will be recorded **O** (doesn\'t count), not **A**" in warnings
+    assert "1 members" in warnings and "Loco" in warnings
+
+
+def test_message_without_emoji_invites_everyone_so_nobody_gets_o(fake_ws):
+    """
+    Regression for the reported bug. A message whose text has no subteam emoji
+    used to fall back to "whoever reacted", marking entire silent subteams O.
+    """
+    results = _dated("Attendance for tomorrow. React if you are attending.")
+    results["invited"] = set()                       # parser found nothing
+    results["Loco"] = []                             # and nobody from Loco reacted
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    _no_exceptions(at)
+
+    assert any("whole team is assumed invited" in w.value for w in at.warning)
+    assert sorted(at.multiselect[0].value) == sorted(ALL_SUBTEAMS)
+
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+    header = fake_ws.rows[0]
+    col = header.index("01/15/26")
+    codes = [r[col] for r in fake_ws.rows[1:]]
+    assert "O" not in codes, f"non-optional meeting must not write O, got {codes}"
+    assert set(codes) <= {"P", "A"}
 
 
 def test_double_check_handles_a_message_with_no_date(fake_ws):

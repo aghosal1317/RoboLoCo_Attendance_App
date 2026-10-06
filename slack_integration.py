@@ -7,11 +7,21 @@ from slack_sdk.errors import SlackApiError
 # Emoji → subteam mapping. Keys are Slack emoji *names* (what the API returns
 # for reactions); the unicode glyphs below map back onto the same names so we
 # can also read the emoji out of the message text.
+# Several emoji can mean the same group — messages have used :hammer:,
+# :wrench: and :hammer_and_wrench: for Build/Mechanical at different times.
+# Missing one used to make a subteam look uninvited, so list them generously.
 SUBTEAM_EMOJIS = {
     "hammer_and_wrench": "Mechanical",
+    "hammer": "Mechanical",
     "wrench": "Mechanical",
+    "tools": "Mechanical",
     "computer": "Software",
+    "laptop": "Software",
+    "desktop_computer": "Software",
     "art": "Loco",
+    "artist_palette": "Loco",
+    "paintbrush": "Loco",
+    "lower_left_paintbrush": "Loco",
     "briefcase": "Executive",
     "memo": "Mentors",
     "pencil": "Mentors",      # Slack renders :pencil: as 📝 too
@@ -32,9 +42,12 @@ SUBTEAM_ALIASES = {
 # instead of :colon_codes:. Variation selectors are stripped before lookup.
 _GLYPH_TO_NAME = {
     "\U0001F6E0": "hammer_and_wrench",
+    "\U0001F528": "hammer",
     "\U0001F527": "wrench",
     "\U0001F4BB": "computer",
+    "\U0001F5A5": "desktop_computer",
     "\U0001F3A8": "art",
+    "\U0001F58C": "paintbrush",
     "\U0001F4BC": "briefcase",
     "\U0001F4DD": "memo",
     "\U0001F3EB": "school",
@@ -165,18 +178,20 @@ def get_attendance_by_subteam(token: str, link: str) -> dict:
     result = {subteam: [] for subteam in set(SUBTEAM_EMOJIS.values())}
     result["wont_attend"] = []
 
-    reacted_subteams = set()
     for emoji, users in reactions.items():
         base = _base_emoji(emoji)
         if base in SUBTEAM_EMOJIS:
             subteam = SUBTEAM_EMOJIS[base]
-            reacted_subteams.add(subteam)
             result[subteam].extend(resolve(uid) for uid in users)
         elif emoji in WONT_ATTEND_EMOJIS or base == "-1":
             result["wont_attend"].extend(resolve(uid) for uid in users)
 
-    # Prefer what the message asked for; fall back to what people reacted with.
-    result["invited"] = find_invited_subteams(message["text"]) or reacted_subteams
+    # Only the message text says who was invited. Never infer it from who
+    # reacted: a subteam where nobody happened to react would look uninvited,
+    # and its members would be recorded as "didn't apply" instead of absent.
+    # An empty set means "couldn't tell" — callers must treat that as
+    # "everyone was invited", not "nobody was".
+    result["invited"] = find_invited_subteams(message["text"])
     result["text"] = message["text"]
     return result
 

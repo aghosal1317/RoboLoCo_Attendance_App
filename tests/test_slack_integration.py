@@ -92,10 +92,27 @@ def test_subset_message_parses_invited_and_names(fake_slack):
     assert sorted(r["wont_attend"]) == ["Adam Youmans", "Julia Miller"]
 
 
-def test_invited_falls_back_to_reactions_when_text_has_no_emoji(fake_slack):
+def test_invited_is_never_inferred_from_who_reacted(fake_slack):
+    """
+    Regression: the invite list used to fall back to "whichever subteams
+    reacted" when the text had no emoji. A subteam where nobody reacted then
+    looked uninvited, so all of its members were recorded O ("didn't apply")
+    instead of A. Empty means "couldn't tell", and callers assume everyone.
+    """
     fake_slack("Practice today, react if coming", {"computer": ["U1"], "art": ["U2"]})
     r = si.get_attendance_by_subteam("tok", "https://x.slack.com/archives/C1/p1700000000000000")
-    assert r["invited"] == {"Software", "Loco"}
+    assert r["invited"] == set()
+
+
+def test_alternative_emoji_for_the_same_group_are_recognised():
+    """A message using :hammer: must not make Mechanical look uninvited."""
+    for text in (":hammer:", ":hammer_and_wrench:", ":wrench:", ":tools:",
+                 "\U0001F528", "\U0001F6E0\uFE0F"):
+        assert si.find_invited_subteams(f"Build react {text}") == {"Mechanical"}
+    for text in (":art:", ":artist_palette:", ":paintbrush:", "\U0001F3A8"):
+        assert si.find_invited_subteams(f"Loco react {text}") == {"Loco"}
+    for text in (":computer:", ":laptop:", "\U0001F4BB"):
+        assert si.find_invited_subteams(f"Software react {text}") == {"Software"}
 
 
 def test_text_emoji_wins_over_reactions(fake_slack):

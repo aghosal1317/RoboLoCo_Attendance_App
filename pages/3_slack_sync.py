@@ -111,10 +111,18 @@ if "slack_results" in st.session_state:
     # Which subteams this meeting was for
     # ----------------------------
     st.subheader("Who was this meeting for?")
-    detected = sorted(set(results.get("invited") or ALL_SUBTEAMS))
+    raw_invited = set(results.get("invited") or ())
+    could_not_tell = not raw_invited
+    detected = sorted(raw_invited) if raw_invited else list(ALL_SUBTEAMS)
     uninvited_detected = [s for s in ALL_SUBTEAMS if s not in detected]
 
-    if uninvited_detected:
+    if could_not_tell:
+        st.warning(
+            "Couldn't find any subteam emoji in this message, so **the whole team is assumed "
+            "invited** — everyone who didn't react will be marked absent as usual. "
+            "Untick any subteam the meeting wasn't for."
+        )
+    elif uninvited_detected:
         st.info(
             "This message only asked **" + "**, **".join(label(s) for s in detected) + "** to react — "
             "no emoji for " + ", ".join(f"**{label(s)}**" for s in uninvited_detected) + ". "
@@ -150,6 +158,7 @@ if "slack_results" in st.session_state:
     st.divider()
     st.subheader("Double-check before saving")
 
+    absent_code = "O" if is_optional else "A"
     problems = 0
     date_conflict = False
 
@@ -195,6 +204,18 @@ if "slack_results" in st.session_state:
             + "\n".join(f"    - {n}" for n in strangers)
         )
 
+    # 4. Anyone who will be recorded "didn't apply" instead of absent
+    if uninvited and uninvited_code != absent_code:
+        skipped = int(roster_df["Subteam"].isin(uninvited).sum())
+        if skipped:
+            problems += 1
+            st.warning(
+                f"• **{skipped} members** in {', '.join(label(s_) for s_ in uninvited)} "
+                f"will be recorded **{uninvited_code}** (doesn't count), not **{absent_code}**, "
+                "because the message didn't ask their subteam to react. "
+                "If they were meant to be at this meeting, tick their subteam above."
+            )
+
     if not problems:
         st.caption("Everything lines up.")
 
@@ -224,7 +245,6 @@ if "slack_results" in st.session_state:
                  disabled=not invited or not override):
         fresh_df = load_data()
         present_names = [name for s in ALL_SUBTEAMS for name in results.get(s, [])]
-        absent_code = "O" if is_optional else "A"
 
         matched_count, unmatched = write_attendance(
             fresh_df, date_str, present_names, absent_code,
