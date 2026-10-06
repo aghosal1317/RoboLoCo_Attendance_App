@@ -4,7 +4,7 @@ from slack_integration import (
 )
 from data_loader import (
     load_data, save_data, recalc_percentages, write_attendance, is_saturday,
-    existing_attendance, unmatched_subteams,
+    existing_attendance, unmatched_subteams, apply_subteams,
 )
 from settings import get_secret
 from datetime import date
@@ -139,6 +139,20 @@ if "slack_results" in st.session_state:
         help="Members of any subteam left out of this list are not marked absent for this meeting.",
     )
 
+    # Who reacted under which subteam emoji — used to fill in the roster's
+    # Subteam column. Someone who reacted under two different emoji is
+    # ambiguous, so they are left alone.
+    reacted_subteam = {}
+    ambiguous = set()
+    for s_ in ALL_SUBTEAMS:
+        for n in results.get(s_, []):
+            key = str(n).strip().lower()
+            if key in reacted_subteam and reacted_subteam[key] != s_:
+                ambiguous.add(n)
+            reacted_subteam[key] = s_
+    for n in ambiguous:
+        reacted_subteam.pop(str(n).strip().lower(), None)
+
     uninvited = [s for s in ALL_SUBTEAMS if s not in invited]
     uninvited_code = "O"
     if uninvited:
@@ -151,6 +165,39 @@ if "slack_results" in st.session_state:
             }[c],
             horizontal=False,
         )
+
+    # ----------------------------
+    # Fill in the roster's Subteam column from the reactions
+    # ----------------------------
+    blank_now = roster_df["Subteam"].fillna("").astype(str).str.strip().eq("").sum()
+    preview = apply_subteams(roster_df.copy(), reacted_subteam)
+    if preview["filled"] or preview["conflicts"] or blank_now:
+        st.divider()
+        st.subheader("Subteams")
+        if preview["filled"]:
+            st.caption(
+                f"**{preview['filled']}** members have no subteam in the sheet and will get one "
+                "from the emoji they reacted with."
+            )
+        elif blank_now:
+            st.caption(
+                f"{int(blank_now)} members still have no subteam, and none of them reacted here. "
+                "They'll fill in as they react to future meetings."
+            )
+        if ambiguous:
+            st.caption("Reacted under more than one subteam, so left unchanged: "
+                       + ", ".join(sorted(ambiguous)))
+
+    overwrite_subteams = False
+    if preview["conflicts"]:
+        with st.expander(f"{len(preview['conflicts'])} reacted under a different subteam than the sheet says"):
+            for name, recorded, reacted in preview["conflicts"]:
+                st.write(f"• **{name}** — sheet says *{recorded}*, reacted as *{reacted}*")
+            overwrite_subteams = st.checkbox(
+                "Move these members to the subteam they reacted with",
+                help="Off by default: someone reacting with the wrong emoji shouldn't "
+                     "silently move them off their real subteam.",
+            )
 
     # ----------------------------
     # Double-check: does the message agree with what the app is about to do?
@@ -260,6 +307,9 @@ if "slack_results" in st.session_state:
         fresh_df = load_data()
         present_names = [name for s in ALL_SUBTEAMS for name in results.get(s, [])]
 
+        # Populate subteams first, so the invite list matches the rows it just filled
+        sub_result = apply_subteams(fresh_df, reacted_subteam, overwrite=overwrite_subteams)
+
         matched_count, unmatched = write_attendance(
             fresh_df, date_str, present_names, absent_code,
             only_subteams=invited, uninvited_code=uninvited_code,
@@ -269,6 +319,13 @@ if "slack_results" in st.session_state:
 
         if saved:
             st.success(f"✅ Attendance saved for {date_str}! {matched_count} members marked present.")
+            if sub_result["filled"] or sub_result["changed"]:
+                bits = []
+                if sub_result["filled"]:
+                    bits.append(f"filled in the subteam for **{sub_result['filled']}** members")
+                if sub_result["changed"]:
+                    bits.append(f"moved **{sub_result['changed']}** to the subteam they reacted with")
+                st.caption("Also " + " and ".join(bits) + ".")
             if uninvited:
                 skipped = int(fresh_df["Subteam"].isin(uninvited).sum())
                 st.caption(f"{skipped} members in {', '.join(label(s) for s in uninvited)} were marked {uninvited_code}.")

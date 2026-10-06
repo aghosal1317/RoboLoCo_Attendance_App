@@ -1,80 +1,77 @@
-Last Name,First Name,Full Name,11/08/25,11/13/25,11/15/25,11/20/25,11/22/25,12/04/25,12/11/25,12/13/25,12/18/25,01/06/26,01/08/26,01/09/26,01/10/26,01/10/26.1,01/13/26,01/15/26,01/16/26,01/17/26,01/17/26.1,01/20/26,01/22/26,01/24/26,01/27/26,01/29/26,01/30/26,01/31/26,02/03/26,02/05/26,02/06/26,02/07/26,02/07/26.1,02/10/26,02/12/26,02/13/26,02/14/26,02/14/26.1,02/19/26,02/20/26,02/21/26,02/21/26.1,02/24/26,02/26/26,02/27/26,02/28/26,02/28/26.1,03/03/26,03/05/26,03/10/26,03/12/26,03/13/26,03/14/26,03/14/26.1,03/17/26,03/24/26,03/26/26,03/27/26,03/28/26,03/30/26,04/01/26,04/02/26,Subteam,% Meetings Attended,04/03/26,04/04/26,04/06/26,04/09/26,04/16/26,04/15/26,04/18/26
-Nayak,Eshan,Eshan Nayak,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,A,P,P,P,P,A,A,O,O,P,O,P,,88.71,P,P,A,A,P,P,P
-Queen,JD,JD Queen,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,O,O,O,O,P,,90.16,P,P,A,A,P,P,P
-Miller,Julia,Julia Miller,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,A,P,P,P,P,P,A,O,O,O,O,P,,90.32,P,A,A,A,P,P,P
-Dasari,Srin,Srin Dasari,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,A,P,O,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,O,P,P,,85.48,P,A,A,A,O,O,A
-Lakkireddy,Aadhya,Aadhya Lakkireddy,P,P,P,P,P,P,P,P,A,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,A,P,A,A,P,A,A,O,P,P,P,P,,80.0,P,A,A,A,P,P,P
-Youmans,Adam,Adam Youmans,A,P,A,P,P,A,P,A,A,A,A,A,P,P,A,O,A,A,A,A,P,A,A,A,A,O,A,A,A,A,A,A,P,A,A,A,A,A,P,P,P,O,A,P,P,P,A,P,P,A,P,P,P,P,A,O,O,O,O,A,,34.48,A,A,A,A,O,O,A
-Ghosal,Aneesh,Aneesh Ghosal,P,P,P,A,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,A,A,P,P,P,A,A,P,P,P,P,A,,83.33,A,A,A,A,P,P,P
-Meka,Anish,Anish Meka,P,P,P,P,P,P,A,P,P,P,A,P,P,P,P,P,P,P,P,A,P,P,A,A,A,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,A,P,A,P,P,P,P,P,O,O,O,O,A,,77.97,A,A,A,A,O,O,P
-Ghosh,Deepto,Deepto Ghosh,A,A,P,P,P,P,P,P,P,P,A,P,A,A,P,O,P,P,P,P,P,A,P,P,P,P,P,A,P,P,P,P,A,P,P,P,P,P,P,P,P,O,P,P,P,P,A,P,A,P,P,P,P,P,A,O,O,O,O,A,,73.77,A,A,A,A,P,P,P
-Burget,Ethan,Ethan Burget,P,A,P,P,P,P,P,P,A,A,P,P,P,P,A,O,P,P,P,P,P,A,A,A,A,O,P,P,P,P,P,P,P,A,P,P,A,A,A,A,P,O,P,P,P,P,P,P,A,A,A,A,A,A,A,O,O,O,O,A,,55.17,A,A,A,A,O,O,A
-Olson,Justin,Justin Olson,P,P,P,P,P,P,A,P,P,P,A,P,P,P,P,O,P,P,P,A,P,P,P,P,P,O,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,O,P,A,A,P,P,P,P,P,P,P,P,P,P,O,O,O,O,A,,81.67,A,A,A,A,P,P,P
-Kozintsev,Mark,Mark Kozintsev,P,A,A,A,P,A,P,P,P,A,A,P,A,A,A,O,P,P,P,P,P,P,P,P,P,O,P,P,P,P,A,P,A,A,P,P,P,A,A,A,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,O,O,A,,67.21,A,A,A,A,P,P,P
-Chalikonda,Neerav,Neerav Chalikonda,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,O,P,P,P,P,A,P,P,P,P,P,P,P,P,O,O,O,O,A,,85.48,A,A,A,A,P,P,P
-Shah,Neev,Neev Shah,P,P,P,P,P,A,A,P,P,A,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,P,P,P,P,A,A,P,O,P,O,O,A,,77.78,A,A,A,A,P,P,P
-Pawar,Nikash,Nikash Pawar,P,P,P,P,P,P,P,P,P,P,P,P,A,A,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,A,P,P,P,P,O,P,P,P,A,P,P,P,A,P,P,P,P,P,P,P,P,P,A,,83.08,A,A,A,A,P,P,P
-Thakkar,Prachi,Prachi Thakkar,P,P,P,P,P,P,P,P,P,A,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,A,P,P,P,P,P,P,P,O,A,A,A,A,P,P,P,P,P,P,A,P,P,O,O,O,P,A,,77.78,A,A,A,A,P,P,P
-Bheema,Pranav,Pranav Bheema,P,P,P,P,P,P,P,P,A,A,P,P,P,P,A,O,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,A,P,A,P,O,P,P,P,A,P,A,P,P,P,P,A,P,P,O,P,O,O,A,,75.81,A,A,A,A,P,P,P
-Harikrishnan,Prathik,Prathik Harikrishnan,A,P,P,P,P,P,P,P,A,A,A,P,P,P,P,O,A,P,P,A,P,A,P,P,P,O,P,P,P,P,P,P,P,P,A,A,P,P,A,A,P,O,A,A,A,P,P,P,P,P,P,P,P,A,A,O,O,O,O,A,,65.0,A,A,A,A,P,P,P
-Revada,Sahasra,Sahasra Revada,A,P,A,A,P,A,A,P,P,A,A,P,P,P,P,P,A,P,P,A,P,P,P,P,P,P,A,P,P,P,P,P,P,A,A,A,A,P,P,P,P,O,A,A,A,A,A,P,P,A,P,P,A,P,P,O,O,O,O,A,,55.0,A,A,A,A,O,O,A
-Thikkalathuru,Sai,Sai Thikkalathuru,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,A,P,P,P,P,P,P,A,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,A,P,P,A,P,P,P,P,P,P,O,O,O,O,A,,83.61,A,A,A,A,P,P,P
-Muhammad,Selin,Selin Muhammad,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,A,P,O,P,P,O,A,,85.71,A,A,A,A,P,P,P
-Khanal,Shashwot,Shashwot Khanal,P,P,P,P,P,P,P,P,A,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,A,A,P,A,P,P,P,P,P,A,P,P,O,O,O,O,A,,81.97,A,A,A,A,P,P,P
-Medepalli,Shrika,Shrika Medepalli,P,A,P,P,P,A,A,A,P,A,A,P,P,P,A,P,A,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,A,P,P,P,P,O,P,P,P,P,A,A,A,P,A,A,A,A,A,O,O,O,O,A,,58.33,A,A,A,A,O,O,A
-Kunthsam,Sreesha,Sreesha Kunthsam,P,P,P,P,P,A,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,A,A,P,P,P,P,O,P,P,P,P,P,A,A,A,A,A,A,P,A,O,O,O,O,A,,70.0,A,A,A,A,O,O,A
-Naicker,Sri Hasini,Sri Hasini Naicker,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,A,P,P,P,P,O,P,A,P,P,P,P,A,A,A,A,P,P,P,P,O,P,P,A,,78.46,A,A,A,A,P,P,P
-Rangwala,Abhirvey,Abhirvey Rangwala,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,,92.31,A,A,A,A,P,P,P
-Chalasani,Aditi,Aditi Chalasani,P,A,P,P,P,P,P,P,A,P,P,P,P,P,P,P,A,A,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,A,A,A,P,A,A,P,O,P,P,P,P,P,P,P,A,A,A,P,P,A,O,O,O,O,A,,69.35,A,A,A,A,P,P,P
-Garg,Adya,Adya Garg,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,,86.36,A,A,A,A,P,P,P
-Dharmapuri,Anirvin Sai,Anirvin Sai Dharmapuri,P,A,A,P,P,P,P,P,A,A,P,P,P,P,A,O,P,P,P,P,P,P,A,P,P,O,A,P,P,P,P,A,P,P,P,P,P,P,A,A,A,O,P,P,P,P,P,A,P,P,P,P,A,A,A,O,O,O,O,A,,66.67,A,A,A,A,P,P,P
-Kamireddy,Anish,Anish Kamireddy,P,P,A,P,A,P,P,A,P,A,A,A,A,A,A,O,P,A,A,A,P,P,P,P,P,P,A,A,A,A,A,P,P,P,P,P,P,P,P,P,A,O,P,A,A,P,P,A,P,P,A,A,P,P,P,O,O,O,O,A,,50.85,A,A,A,A,O,O,A
-Muhammad,Aran,Aran Muhammad,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,,90.91,A,A,A,A,P,P,P
-Banerjee,Arush,Arush Banerjee,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,A,P,P,A,P,P,P,P,P,O,P,P,P,P,A,P,A,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,A,A,A,A,A,P,A,O,O,O,O,A,,66.1,A,A,A,A,O,O,A
-Uniyal,Avik,Avik Uniyal,A,P,P,P,P,A,A,P,A,A,P,P,A,A,P,O,P,P,P,A,P,P,P,A,P,P,P,P,P,A,A,P,P,P,P,P,P,P,A,A,A,O,P,A,A,P,P,A,P,P,A,A,P,A,P,O,O,O,O,A,,55.93,A,A,A,A,O,O,A
-Achi,Bodha,Bodha Achi,A,P,P,A,A,P,A,P,P,P,P,P,P,P,P,O,P,P,P,A,P,A,P,P,A,O,P,A,P,P,P,A,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,A,A,P,P,P,P,P,P,O,O,O,O,A,,65.52,A,A,A,A,O,O,A
-Fitzgerald,Claire,Claire Fitzgerald,P,A,P,P,P,P,P,P,P,A,P,A,A,A,P,O,A,A,A,A,P,A,P,P,P,P,P,P,A,A,A,A,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,A,A,P,A,P,A,P,O,O,O,O,A,,62.3,A,A,A,A,P,P,P
-Evans,Grace,Grace Evans,P,P,P,A,A,P,P,P,A,A,A,A,A,A,A,O,A,A,A,A,A,P,A,A,A,O,A,A,A,A,A,A,A,A,A,A,A,A,A,A,A,O,A,A,A,A,A,A,A,A,A,A,A,A,A,O,O,O,O,A,,12.07,A,A,A,A,O,O,A
-Duggaraju,Hasit,Hasit Duggaraju,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,A,A,P,P,P,P,P,O,A,A,A,P,P,P,P,P,P,P,P,P,P,O,O,O,O,A,,81.36,A,A,A,P,O,O,A
-Abraham,Jonathan,Jonathan Abraham,P,A,A,A,P,A,A,P,P,P,P,P,P,P,P,O,P,A,A,P,P,P,P,P,P,O,A,P,P,P,A,P,A,P,P,P,P,P,P,P,P,O,A,A,A,A,P,A,P,P,P,P,P,A,A,P,P,O,O,A,,63.33,A,A,A,P,O,O,A
-Rivas Paz,Joshua,Joshua Rivas Paz,A,P,P,P,P,P,P,P,A,P,P,A,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,A,P,P,P,P,O,P,P,P,A,P,A,P,A,P,P,A,P,P,O,O,O,O,A,,74.58,A,A,A,A,O,O,A
-Rajkumar,Kaviya,Kaviya Rajkumar,P,A,P,P,P,A,P,P,A,A,P,P,P,P,P,P,P,P,P,A,P,A,P,A,A,O,P,P,A,A,A,P,A,A,A,A,P,P,P,P,P,O,P,P,P,P,A,P,A,A,A,A,P,P,P,P,P,O,O,A,,61.9,A,A,A,P,P,P,P
-Andrades,Kaylynn,Kaylynn Andrades,P,P,A,P,P,P,P,P,P,P,P,A,P,P,A,O,P,P,P,P,P,P,A,A,P,P,P,P,P,P,P,A,P,A,P,P,P,A,P,P,P,O,P,P,P,P,P,A,A,P,P,P,P,A,A,O,O,O,O,A,,71.19,A,A,A,P,O,O,A
-Zheng,Kyle,Kyle Zheng,A,P,P,P,P,P,P,P,A,P,A,P,P,P,P,P,A,P,P,P,P,P,P,A,A,O,P,P,A,A,A,P,P,P,P,P,A,A,P,P,P,O,A,A,A,P,P,P,P,A,P,P,P,A,A,O,O,O,O,A,,61.02,A,A,A,A,O,O,A
-Potuluri,Laasya,Laasya Potuluri,P,A,P,A,P,P,P,P,P,P,P,P,A,A,P,O,P,P,P,P,P,P,P,P,P,P,P,P,A,A,A,P,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,P,P,P,P,P,P,P,O,O,O,O,A,,72.88,A,A,A,A,O,O,A
-Fraykor,Maddox,Maddox Fraykor,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,O,O,A,,93.65,A,A,A,P,P,P,P
-Paluru,Manoj Adithya,Manoj Adithya Paluru,A,A,P,P,P,P,P,P,A,A,P,P,A,A,P,O,P,P,A,P,P,P,P,P,P,P,A,P,A,P,P,P,P,P,P,P,A,P,A,A,P,O,P,P,P,P,P,A,P,P,P,P,P,P,A,O,O,O,O,A,,67.8,A,A,P,A,O,O,A
-Jupalli,Nihal,Nihal Jupalli,A,P,P,P,P,P,P,P,A,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,A,P,P,P,P,P,P,P,P,O,P,A,A,P,P,P,P,P,P,P,P,P,A,O,O,O,O,A,,80.65,A,A,A,P,P,P,P
-Sharma,Riya,Riya Sharma,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,A,P,O,P,A,A,P,P,A,A,P,P,P,P,P,A,O,O,O,O,A,,80.33,A,A,A,P,P,P,P
-Sujlana,Ruhi,Ruhi Sujlana,P,A,P,P,A,P,P,P,P,P,P,P,P,P,P,P,A,A,A,A,P,P,P,P,A,O,P,A,P,P,P,P,A,A,P,P,A,P,A,A,P,O,P,A,P,P,P,P,A,A,P,A,A,P,P,O,O,O,O,A,,61.02,A,A,A,P,O,O,A
-Korem,Saanvi,Saanvi Korem,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,A,A,O,P,P,P,P,P,P,P,P,P,P,A,P,P,O,O,O,O,A,,87.1,A,A,A,P,P,P,P
-Jadigam,Shrihan,Shrihan Jadigam,A,A,A,P,P,P,P,P,A,P,P,P,P,P,P,O,P,P,P,A,P,P,P,P,A,P,P,P,A,A,A,P,P,P,P,P,P,P,A,A,P,O,P,A,A,A,P,P,P,A,A,A,P,P,P,O,O,O,O,A,,65.57,A,A,A,P,P,P,P
-Sahu,Simran,Simran Sahu,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,A,A,P,P,P,P,P,A,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,O,A,,87.3,A,A,P,A,P,P,P
-Aggarwal,Tanisha,Tanisha Aggarwal,A,A,P,A,P,P,P,A,A,P,A,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,A,P,P,P,P,A,P,P,P,P,O,A,A,A,P,P,P,A,A,A,A,P,A,P,O,O,O,O,A,,65.57,A,A,A,P,P,P,P
-Yoo,Timothy,Timothy Yoo,A,P,P,A,A,P,A,A,A,P,A,A,P,P,A,P,A,P,P,P,A,P,A,A,A,O,P,A,P,P,A,P,A,A,P,P,A,A,A,A,P,O,A,A,A,P,A,A,A,A,A,A,A,A,A,O,O,O,O,A,,32.2,A,A,A,A,O,O,A
-Chamarti,Vaishnavi,Vaishnavi Chamarti,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,A,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,P,P,P,P,P,P,P,P,P,O,O,A,,84.38,A,A,A,P,P,P,P
-Joshi,Aarav,Aarav Joshi,P,P,P,P,P,P,P,P,A,A,P,A,P,P,P,P,A,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,A,P,A,P,P,P,P,P,O,P,P,O,A,,81.25,A,A,A,A,P,P,P
-Nirmal,Aneesh,Aneesh Nirmal,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,A,P,P,P,A,P,P,P,P,P,P,P,P,A,P,P,A,A,A,A,A,O,P,P,P,P,P,P,A,P,P,P,A,P,A,O,O,O,O,A,,74.19,A,A,A,P,P,P,P
-Sule,Aneesh,Aneesh Sule,P,P,P,P,P,A,A,A,P,P,P,A,A,A,P,O,A,P,P,A,P,A,P,A,P,P,P,P,P,A,A,P,P,P,P,P,A,P,P,P,P,O,P,P,P,P,A,P,P,A,P,P,P,A,A,O,O,O,O,A,,65.57,A,A,A,P,P,P,P
-Tay,Brian,Brian Tay,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,A,O,O,O,O,A,,91.94,A,A,A,P,P,P,P
-Choi,Eugene,Eugene Choi,P,P,A,P,P,P,P,A,A,P,P,A,P,P,P,P,P,A,A,P,A,A,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,A,A,P,P,P,A,P,P,P,A,P,P,P,O,O,O,A,,73.02,A,A,A,P,P,P,P
-Shakir,Hamzah,Hamzah Shakir,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,O,P,P,P,P,P,A,A,P,P,P,P,A,P,O,O,O,O,A,,85.48,A,A,A,P,P,P,P
-Kaul,Ikshaan,Ikshaan Kaul,P,P,P,A,A,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,A,P,O,O,O,O,A,,85.48,A,A,A,P,P,P,P
-Shukla,Ishaan,Ishaan Shukla,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,O,A,,90.32,A,A,A,P,O,O,A
-Muralikrishnan,Kavin,Kavin Muralikrishnan,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,O,P,A,,90.77,A,A,A,P,P,P,P
-Adams Samboy,Nadia,Nadia Adams Samboy,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,A,P,P,P,P,A,A,O,P,O,O,A,,87.3,A,A,A,P,P,P,P
-Kanhere,Priyanshu,Priyanshu Kanhere,P,P,P,A,A,P,P,P,A,P,A,P,P,P,P,P,P,P,P,P,P,A,P,A,P,O,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,P,A,P,P,P,P,P,O,O,P,P,A,,77.78,A,A,A,P,P,P,P
-Krol,Rachel,Rachel Krol,P,P,P,P,P,P,P,P,P,P,P,A,P,P,A,P,A,P,P,P,P,P,A,P,P,O,P,P,P,P,P,P,P,P,P,P,P,P,A,A,P,O,P,P,P,P,P,P,P,P,P,A,P,A,A,O,O,O,O,A,,77.05,A,A,A,A,P,P,P
-Shenoy,Rahul,Rahul Shenoy,A,P,A,P,P,A,A,A,A,A,A,P,P,P,A,O,P,P,P,A,P,P,P,A,A,P,A,A,A,P,P,A,P,P,P,P,P,P,A,A,P,O,P,P,P,P,P,P,P,A,P,P,P,P,A,O,O,O,O,A,,61.02,A,A,P,P,O,O,P
-Singh,Rishan,Rishan Singh,A,P,P,P,P,P,P,P,P,P,A,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,A,A,A,P,P,P,P,P,P,P,P,P,P,O,P,P,P,A,,83.08,A,A,A,P,P,P,P
-Rajakumar,Rohit,Rohit Rajakumar,P,A,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,A,P,A,P,P,A,P,A,A,O,O,P,P,A,,81.25,A,A,A,P,P,P,P
-Moen,Sam,Sam Moen,P,A,P,P,P,A,A,P,P,A,P,A,P,P,P,P,A,A,A,A,A,A,P,P,P,O,P,P,P,A,A,A,P,P,P,P,A,A,A,A,P,O,A,A,A,P,P,P,P,P,P,P,P,P,A,O,O,O,O,A,,57.38,A,A,A,P,P,P,P
-Bikindu Makanka,Sarah,Sarah Bikindu Makanka,P,P,A,P,P,A,P,P,P,P,A,A,A,A,P,P,P,P,P,A,P,P,P,P,A,O,A,P,A,P,P,A,P,P,A,A,P,P,P,P,P,O,P,P,P,P,A,A,P,A,P,P,A,A,A,O,O,O,O,A,,60.66,A,A,A,A,P,P,P
-Parthaje,Shreshta,Shreshta Parthaje,P,P,P,P,P,P,P,P,A,P,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,O,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,O,A,,89.23,A,A,A,P,P,P,P
-Yellamagari,Shriya,Shriya Yellamagari,P,P,P,P,P,A,P,P,P,P,A,A,A,A,P,O,A,A,A,P,P,P,P,P,P,P,P,P,A,A,A,P,P,P,P,P,P,P,A,A,P,O,P,P,P,P,P,P,P,P,P,P,P,P,A,O,O,O,O,A,,68.85,A,A,A,A,P,P,P
-Nalluri,Suha,Suha Nalluri,P,P,A,P,P,P,A,A,A,A,A,A,A,A,P,O,A,A,A,P,A,P,P,P,A,P,A,A,A,A,A,A,A,A,A,A,A,A,A,A,A,O,A,A,A,A,A,A,A,A,A,A,A,A,A,O,O,O,O,A,,18.64,A,A,A,A,O,O,A
-Cubbison,Trip,Trip Cubbison,P,P,P,P,P,P,P,P,P,A,A,P,P,P,A,O,P,A,A,P,A,A,A,A,A,A,A,P,P,P,P,P,A,P,A,A,A,A,A,A,A,O,P,P,P,P,A,P,A,P,P,P,P,A,A,O,O,O,O,A,,49.15,A,A,A,A,O,O,A
-Ajima,Coach,Coach Ajima,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,P,P,P,P,P,P,P,P,P,P,O,O,O,O,O,O,O,A,,87.93,A,A,A,A,O,O,A
-Steinbronn,Coach,Coach Steinbronn,A,P,O,P,P,O,O,O,P,P,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,P,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,A,,46.15,A,A,A,A,O,O,A
-Stone,Coach,Coach Stone,A,A,A,P,P,P,P,P,P,P,P,P,P,P,P,P,P,A,A,P,P,P,P,P,P,P,P,P,P,A,A,P,A,P,P,P,P,P,A,A,P,A,P,P,P,P,P,P,P,P,P,P,O,O,O,O,O,O,O,A,,70.69,A,A,A,A,O,O,A
-Tomlinson,Coach,Coach Tomlinson,P,P,O,O,O,O,O,O,P,A,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,P,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,O,A,,36.36,A,A,A,A,O,O,A
+Last Name,First Name,Full Name,Subteam,% Meetings Attended,10/06/26
+Queen,JD,JD Queen,,0.0,A
+Lakkireddy,Aadhya,Aadhya Lakkireddy,,100.0,P
+Youmans,Adam,Adam Youmans,,0.0,A
+Ghosal,Aneesh,Aneesh Ghosal,,100.0,P
+Meka,Anish,Anish Meka,,0.0,A
+Ghosh,Deepto,Deepto Ghosh,,0.0,A
+Burget,Ethan,Ethan Burget,,0.0,A
+Olson,Justin,Justin Olson,,100.0,P
+Kozintsev,Mark,Mark Kozintsev,,0.0,A
+Chalikonda,Neerav,Neerav Chalikonda,,100.0,P
+Shah,Neev,Neev Shah,,100.0,P
+Pawar,Nikash,Nikash Pawar,,100.0,P
+Thakkar,Prachi,Prachi Thakkar,,0.0,A
+Bheema,Pranav,Pranav Bheema,,100.0,P
+Harikrishnan,Prathik,Prathik Harikrishnan,,0.0,A
+Revada,Sahasra,Sahasra Revada,,0.0,A
+Thikkalathuru,Sai,Sai Thikkalathuru,,100.0,P
+Muhammad,Selin,Selin Muhammad,,100.0,P
+Khanal,Shashwot,Shashwot Khanal,,0.0,A
+Medepalli,Shrika,Shrika Medepalli,,0.0,A
+Kunthsam,Sreesha,Sreesha Kunthsam,,0.0,A
+Naicker,Sri Hasini,Sri Hasini Naicker,,0.0,A
+Rangwala,Abhirvey,Abhirvey Rangwala,,100.0,P
+Chalasani,Aditi,Aditi Chalasani,,0.0,A
+Garg,Adya,Adya Garg,,100.0,P
+Dharmapuri,Anirvin Sai,Anirvin Sai Dharmapuri,,0.0,A
+Kamireddy,Anish,Anish Kamireddy,,0.0,A
+Muhammad,Aran,Aran Muhammad,,100.0,P
+Banerjee,Arush,Arush Banerjee,,100.0,P
+Uniyal,Avik,Avik Uniyal,,0.0,A
+Achi,Bodha,Bodha Achi,,100.0,P
+Fitzgerald,Claire,Claire Fitzgerald,,100.0,P
+Evans,Grace,Grace Evans,,0.0,A
+Duggaraju,Hasit,Hasit Duggaraju,,100.0,P
+Abraham,Jonathan,Jonathan Abraham,,100.0,P
+Rivas Paz,Joshua,Joshua Rivas Paz,,0.0,A
+Rajkumar,Kaviya,Kaviya Rajkumar,,0.0,A
+Andrades,Kaylynn,Kaylynn Andrades,,0.0,A
+Zheng,Kyle,Kyle Zheng,,0.0,A
+Potuluri,Laasya,Laasya Potuluri,,0.0,A
+Fraykor,Maddox,Maddox Fraykor,,100.0,P
+Paluru,Manoj Adithya,Manoj Adithya Paluru,,0.0,A
+Jupalli,Nihal,Nihal Jupalli,,0.0,A
+Sharma,Riya,Riya Sharma,,100.0,P
+Sujlana,Ruhi,Ruhi Sujlana,,0.0,A
+Korem,Saanvi,Saanvi Korem,,100.0,P
+Jadigam,Shrihan,Shrihan Jadigam,,100.0,P
+Sahu,Simran,Simran Sahu,,100.0,P
+Aggarwal,Tanisha,Tanisha Aggarwal,,100.0,P
+Yoo,Timothy,Timothy Yoo,,0.0,A
+Chamarti,Vaishnavi,Vaishnavi Chamarti,,100.0,P
+Joshi,Aarav,Aarav Joshi,,100.0,P
+Nirmal,Aneesh,Aneesh Nirmal,,0.0,A
+Sule,Aneesh,Aneesh Sule,,0.0,A
+Tay,Brian,Brian Tay,,0.0,A
+Choi,Eugene,Eugene Choi,,100.0,P
+Shakir,Hamzah,Hamzah Shakir,,100.0,P
+Kaul,Ikshaan,Ikshaan Kaul,,100.0,P
+Shukla,Ishaan,Ishaan Shukla,,0.0,A
+Muralikrishnan,Kavin,Kavin Muralikrishnan,,100.0,P
+Adams Samboy,Nadia,Nadia Adams Samboy,,0.0,A
+Kanhere,Priyanshu,Priyanshu Kanhere,,100.0,P
+Krol,Rachel,Rachel Krol,,100.0,P
+Shenoy,Rahul,Rahul Shenoy,,0.0,A
+Singh,Rishan,Rishan Singh,,0.0,A
+Rajakumar,Rohit,Rohit Rajakumar,,0.0,A
+Moen,Sam,Sam Moen,,0.0,A
+Bikindu Makanka,Sarah,Sarah Bikindu Makanka,,0.0,A
+Parthaje,Shreshta,Shreshta Parthaje,,100.0,P
+Yellamagari,Shriya,Shriya Yellamagari,,0.0,A
+Nalluri,Suha,Suha Nalluri,,0.0,A
+Cubbison,Trip,Trip Cubbison,,0.0,A
+Ajima,Josh,Josh Ajima,,100.0,P
+Steinbronn,Leah,Leah Steinbronn,,0.0,A
+Stone,Rebecca,Rebecca Stone,,100.0,P
+Tomlinson,Micheal,Micheal Tomlinson,,0.0,A

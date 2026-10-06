@@ -324,6 +324,40 @@ def get_columns_for_date(df, date_str):
     return cols
 
 
+def apply_subteams(df, subteam_by_name, overwrite=False):
+    """
+    Fill in the Subteam column from who reacted under which subteam emoji.
+
+    subteam_by_name maps a member's full name to the subteam whose emoji they
+    reacted with (matched case-insensitively). Blank subteams are always filled
+    in — that's the point, a new sheet starts empty and fills itself as people
+    react. An existing subteam is only replaced when overwrite=True; otherwise
+    the disagreement is reported, so one stray reaction can't quietly move
+    someone who is deliberately on another subteam.
+
+    Returns {"filled": n, "changed": n, "conflicts": [(name, recorded, reacted)]}
+    """
+    lookup = {str(k).strip().lower(): v for k, v in (subteam_by_name or {}).items()}
+    filled = changed = 0
+    conflicts = []
+
+    for i, row in df.iterrows():
+        reacted = lookup.get(str(row.get("Full Name") or "").strip().lower())
+        if not reacted:
+            continue
+        current = str(row.get("Subteam") or "").strip()
+        if not current or current.lower() == "nan":
+            df.at[i, "Subteam"] = reacted
+            filled += 1
+        elif canonical_subteam(current) != canonical_subteam(reacted):
+            conflicts.append((row["Full Name"], current, reacted))
+            if overwrite:
+                df.at[i, "Subteam"] = reacted
+                changed += 1
+
+    return {"filled": filled, "changed": changed, "conflicts": conflicts}
+
+
 def unmatched_subteams(df, subteams):
     """
     Which of `subteams` match no one on the roster — i.e. the app and the sheet
@@ -461,12 +495,12 @@ def save_data(df, path=None):
 def _ordered_columns(df):
     """
     Return df with columns in a consistent order:
-        Last Name | First Name | Full Name | % Meetings Attended | <dates, chronological> | Subteam
+        Last Name | First Name | Full Name | Subteam | % Meetings Attended | <dates, chronological>
     Any unexpected extra columns are appended at the end.
     """
-    priority = ["Last Name", "First Name", "Full Name", "% Meetings Attended"]
+    priority = ["Last Name", "First Name", "Full Name", "Subteam", "% Meetings Attended"]
     date_cols = get_date_columns(df)
-    tail = ["Subteam"]
+    tail = []
 
     ordered = (
         [c for c in priority if c in df.columns]

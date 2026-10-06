@@ -172,8 +172,8 @@ def test_save_data_round_trip_orders_columns_and_pushes(fake_ws, tmp_paths):
 
     assert fake_ws.cleared == 1
     header = fake_ws.rows[0]
-    assert header == ["Last Name", "First Name", "Full Name", "% Meetings Attended",
-                      "01/06/26", "01/08/26", "01/10/26", "01/10/26.1", "01/13/26", "Subteam"]
+    assert header == ["Last Name", "First Name", "Full Name", "Subteam", "% Meetings Attended",
+                      "01/06/26", "01/08/26", "01/10/26", "01/10/26.1", "01/13/26"]
     # what we pushed reloads identically
     reloaded = dl.load_data()
     assert reloaded["Full Name"].tolist() == df["Full Name"].tolist()
@@ -457,3 +457,55 @@ def test_blank_subteam_column_does_not_mark_everyone_o():
                         only_subteams=["Mechanical", "Software", "Loco", "Executive"])
     assert df["10/06/26"].tolist() == ["P", "A", "P", "A"]
     assert "O" not in df["10/06/26"].tolist()
+
+
+# ── apply_subteams (filling the roster from reactions) ─────────────────────
+
+def test_apply_subteams_fills_blanks():
+    df = pd.DataFrame({"Full Name": ["A One", "B Two", "C Three"],
+                       "Subteam": ["", None, "Loco"]})
+    r = dl.apply_subteams(df, {"a one": "Mechanical", "b two": "Software"})
+    assert df["Subteam"].tolist() == ["Mechanical", "Software", "Loco"]
+    assert r["filled"] == 2 and r["changed"] == 0 and r["conflicts"] == []
+
+
+def test_apply_subteams_matches_names_case_insensitively():
+    df = pd.DataFrame({"Full Name": ["  Eshan Nayak "], "Subteam": [""]})
+    dl.apply_subteams(df, {"ESHAN NAYAK": "Loco"})
+    assert df["Subteam"].tolist() == ["Loco"]
+
+
+def test_apply_subteams_does_not_move_someone_by_default():
+    df = pd.DataFrame({"Full Name": ["A One"], "Subteam": ["Mechanical"]})
+    r = dl.apply_subteams(df, {"a one": "Software"})
+    assert df["Subteam"].tolist() == ["Mechanical"]      # unchanged
+    assert r["conflicts"] == [("A One", "Mechanical", "Software")]
+    assert r["changed"] == 0
+
+
+def test_apply_subteams_moves_when_overwrite_requested():
+    df = pd.DataFrame({"Full Name": ["A One"], "Subteam": ["Mechanical"]})
+    r = dl.apply_subteams(df, {"a one": "Software"}, overwrite=True)
+    assert df["Subteam"].tolist() == ["Software"]
+    assert r["changed"] == 1
+
+
+def test_apply_subteams_treats_equivalent_names_as_agreement():
+    """The sheet says Build, they reacted Mechanical — same thing, no conflict."""
+    df = pd.DataFrame({"Full Name": ["A One"], "Subteam": ["Build"]})
+    r = dl.apply_subteams(df, {"a one": "Mechanical"})
+    assert r["conflicts"] == [] and r["filled"] == 0
+    assert df["Subteam"].tolist() == ["Build"]
+
+
+def test_apply_subteams_ignores_people_not_on_the_roster():
+    df = pd.DataFrame({"Full Name": ["A One"], "Subteam": [""]})
+    r = dl.apply_subteams(df, {"someone else": "Loco"})
+    assert r["filled"] == 0 and df["Subteam"].tolist() == [""]
+
+
+def test_subteam_column_sits_right_after_full_name(fake_ws):
+    df = dl.load_data()
+    cols = dl._ordered_columns(df).columns.tolist()
+    assert cols[:5] == ["Last Name", "First Name", "Full Name", "Subteam", "% Meetings Attended"]
+    assert cols[-1] != "Subteam"

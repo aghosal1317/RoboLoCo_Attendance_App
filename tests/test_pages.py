@@ -637,3 +637,51 @@ def test_drive_sync_does_not_turn_blank_cells_into_o(monkeypatch):
 
     written = [c for row in dest.rows[1:] for c in row]
     assert "O" not in written, f"blank cells must stay blank, got {dest.rows}"
+
+
+# ── Subteams filled in from reactions ──────────────────────────────────────
+
+BLANK_SUBTEAM_ROWS = [
+    ["Last Name", "First Name", "Full Name", "Subteam", "% Meetings Attended"],
+    ["Nayak", "Eshan", "Eshan Nayak", "", ""],
+    ["Queen", "JD", "JD Queen", "", ""],
+    ["Miller", "Julia", "Julia Miller", "", ""],
+    ["Dasari", "Srin", "Srin Dasari", "Loco", ""],
+]
+
+
+def test_slack_sync_fills_blank_subteams_from_reactions(monkeypatch):
+    ws = conftest.FakeWorksheet(BLANK_SUBTEAM_ROWS)
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    results = _dated("Meeting on 01/15/26")
+    results.update({"Mechanical": ["Eshan Nayak"], "Software": ["JD Queen"],
+                    "Loco": [], "Executive": [], "Mentors": [], "Coaches": [],
+                    "invited": set(ALL_SUBTEAMS)})
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    _no_exceptions(at)
+    assert any("will get one" in c.value for c in at.caption)
+
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    header = ws.rows[0]
+    sub = {r[header.index("Full Name")]: r[header.index("Subteam")] for r in ws.rows[1:]}
+    assert sub["Eshan Nayak"] == "Mechanical"      # filled from the emoji they used
+    assert sub["JD Queen"] == "Software"
+    assert sub["Julia Miller"] == ""               # didn't react, still blank
+    assert sub["Srin Dasari"] == "Loco"            # already set, untouched
+    assert any("filled in the subteam for **2** members" in c.value for c in at.caption)
+
+
+def test_slack_sync_written_sheet_puts_subteam_after_full_name(monkeypatch):
+    ws = conftest.FakeWorksheet(BLANK_SUBTEAM_ROWS)
+    monkeypatch.setattr(dl, "_get_worksheet", lambda sheet_id=None: ws)
+    results = _dated("Meeting on 01/15/26")
+    results["invited"] = set(ALL_SUBTEAMS)
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+    assert ws.rows[0][:5] == ["Last Name", "First Name", "Full Name",
+                              "Subteam", "% Meetings Attended"]
