@@ -43,8 +43,15 @@ def canonical_subteam(value):
     Map any spelling of a group to its canonical name — "build" → "Mechanical",
     " leadership " → "Executive". Unrecognised names come back stripped but
     otherwise untouched, so a custom subteam still matches itself.
+
+    Anything empty — None, NaN, "", the string "nan" pandas leaves behind —
+    maps to "", meaning "no subteam recorded".
     """
-    cleaned = str(value or "").strip()
+    if value is None or value != value:          # None, or NaN (never equal to itself)
+        return ""
+    cleaned = str(value).strip()
+    if not cleaned or cleaned.lower() == "nan":
+        return ""
     return SUBTEAM_CANONICAL.get(cleaned.lower(), cleaned)
 
 # Canonical attendance rules — every page must use these, never its own lists.
@@ -414,13 +421,19 @@ def write_attendance(df, date_str, present_names, absent_code="A",
 
     if only_subteams is not None:
         wanted = {canonical_subteam(s) for s in only_subteams}
-        invited = df["Subteam"].map(canonical_subteam).isin(wanted)
+        roster_subteam = df["Subteam"].map(canonical_subteam)
+        invited = roster_subteam.isin(wanted)
+        # A blank subteam means "we don't know", not "not invited". Only someone
+        # whose subteam is known, and is not on the invite list, can be recorded
+        # as "this meeting didn't apply to you" — otherwise every member the
+        # roster hasn't classified yet would silently stop counting.
+        unknown = roster_subteam.eq("")
         # Safety net: if the invite list matches nobody at all, the names don't
         # line up with this sheet (e.g. the sheet says "Build", the app asked
         # for "Mechanical"). Applying it would record the entire team as
         # "didn't apply" — far worse than ignoring the restriction, so ignore it.
         if invited.any():
-            codes = codes.where(invited | is_present, uninvited_code)
+            codes = codes.where(invited | is_present | unknown, uninvited_code)
 
     for c in date_cols:
         df[c] = codes

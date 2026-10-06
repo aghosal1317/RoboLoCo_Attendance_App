@@ -509,3 +509,40 @@ def test_subteam_column_sits_right_after_full_name(fake_ws):
     cols = dl._ordered_columns(df).columns.tolist()
     assert cols[:5] == ["Last Name", "First Name", "Full Name", "Subteam", "% Meetings Attended"]
     assert cols[-1] != "Subteam"
+
+
+def test_blank_subteam_is_unknown_not_uninvited():
+    """
+    Regression: once subteams were partly filled in, the safety net stopped
+    firing (some rows matched), and everyone still blank failed the invited
+    test and was written O on a non-optional meeting.
+    """
+    df = pd.DataFrame({
+        "Full Name": ["Known In", "Known Out", "Blank One", "Blank Two"],
+        "Subteam": ["Mechanical", "Loco", "", None],
+    })
+    dl.write_attendance(df, "10/06/26", ["Known In"], absent_code="A",
+                        only_subteams=["Mechanical", "Software", "Executive"])
+    assert df["10/06/26"].tolist() == ["P", "O", "A", "A"]
+
+
+def test_partially_populated_roster_matches_the_live_sheet_shape():
+    """29 classified, 47 blank — the exact situation that regressed."""
+    subteams = (["Mechanical"] * 11 + ["Executive"] * 8 + ["Software"] * 5
+                + ["Loco"] * 3 + ["Coaches"] * 2 + [""] * 47)
+    names = [f"M{i}" for i in range(len(subteams))]
+    df = pd.DataFrame({"Full Name": names, "Subteam": subteams})
+    present = set(names[:34])
+    dl.write_attendance(df, "10/06/26", present, absent_code="A",
+                        only_subteams=["Mechanical", "Software", "Loco", "Executive",
+                                       "Mentors", "Coaches"])
+    codes = df["10/06/26"].tolist()
+    assert "O" not in codes, f"non-optional meeting wrote O: {sorted(set(codes))}"
+    assert set(codes) == {"P", "A"}
+    assert codes.count("P") == 34
+
+
+def test_canonical_subteam_treats_every_empty_form_as_no_subteam():
+    import numpy as np
+    for empty in (None, "", "   ", float("nan"), np.nan, "nan", "NaN"):
+        assert dl.canonical_subteam(empty) == "", f"{empty!r} should mean no subteam"
