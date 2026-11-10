@@ -23,6 +23,9 @@ pg = st.navigation([
     st.Page("pages/8_generate_qr.py",         title="Generate QR Codes"),
     st.Page("pages/9_qr_checkin.py",          title="QR Check-In"),
     st.Page("pages/10_settings.py",           title="Settings"),
+    st.Page("pages/11_kiosk.py",              title="Check-In Kiosk"),
+    st.Page("pages/12_checkin.py",            title="Check In / Out"),
+    st.Page("pages/13_checkin_admin.py",      title="Check-In Admin"),
 ])
 
 pg.run()

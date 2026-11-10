@@ -16,8 +16,26 @@ import settings  # noqa: E402
 
 
 class FakeSpreadsheet:
-    def __init__(self, title):
+    """Mimics the slice of gspread.Spreadsheet the app uses, including tabs."""
+
+    def __init__(self, title, tabs=None):
         self.title = title
+        self.tabs = tabs if tabs is not None else {}
+
+    def worksheet(self, name):
+        import gspread
+        if name not in self.tabs:
+            raise gspread.WorksheetNotFound(name)
+        return self.tabs[name]
+
+    def add_worksheet(self, title, rows=100, cols=20):
+        ws = FakeWorksheet([], title=title, spreadsheet_title=self.title)
+        ws.spreadsheet = self
+        self.tabs[title] = ws
+        return ws
+
+    def worksheets(self):
+        return list(self.tabs.values())
 
 
 class FakeWorksheet:
@@ -40,6 +58,17 @@ class FakeWorksheet:
     def update(self, data):
         self.updates.append([list(r) for r in data])
         self.rows = [list(r) for r in data]
+
+    def append_row(self, values, value_input_option=None):
+        self.rows.append([str(v) for v in values])
+
+    def update_cell(self, row, col, value):
+        while len(self.rows) < row:
+            self.rows.append([])
+        target = self.rows[row - 1]
+        while len(target) < col:
+            target.append("")
+        target[col - 1] = str(value)
 
 
 # Header + members in the app-written ("format B") layout, mirroring the live sheet.
@@ -104,3 +133,15 @@ def _protect_real_backup():
     yield
     after = os.stat(real).st_mtime_ns if os.path.exists(real) else None
     assert before == after, "a test modified the real data/attendance.csv — redirect CSV_PATH via tmp_paths"
+
+
+@pytest.fixture
+def fake_book(monkeypatch):
+    """
+    A fake spreadsheet for the check-in log: session_log creates its own tabs,
+    so tests get the book rather than a single worksheet.
+    """
+    import session_log
+    book = FakeSpreadsheet("Fake Attendance", tabs={})
+    monkeypatch.setattr(session_log, "_spreadsheet", lambda: book)
+    return book

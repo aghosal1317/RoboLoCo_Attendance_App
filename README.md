@@ -63,6 +63,88 @@ Saturday meetings count twice: every entry page writes the same status to `MM/DD
 
 ---
 
+## Check-In / Check-Out (rotating code)
+
+A separate, independent record of who was **actually in the room**, for checking the
+Slack RSVPs against reality. It writes to its own tabs and never touches the attendance
+tab; the two are only ever compared side by side, read-only.
+
+**How it works.** A static QR code at the door opens the check-in page. That link on its
+own does nothing — the student also has to type a 4-digit code that is only visible on
+the kiosk screen in the shop and changes every 30 seconds. Forwarding the link to a friend
+at home gets them nowhere.
+
+The code is derived on the server and never sent to the browser as a secret:
+
+```
+code = HMAC(CHECKIN_SECRET, "<meeting_id>|<window>|<direction>") -> 4 digits
+window = floor(server_epoch / ROTATION_SECONDS)
+```
+
+Check-in and check-out have different codes, so a check-out code can't be used to sign in
+(or the reverse). The previous window is also accepted, so slow typers aren't punished.
+
+**Pages**
+
+| Page | Who | What |
+|---|---|---|
+| Check-In Kiosk | mentor | PIN-gated. Start/End meeting, both live codes, countdown, live "Signed in: N" |
+| Check In / Out | student | Pick your name, type the code, check in or out |
+| Check-In Admin | mentor | Flagged rows, who forgot to check out, manual fix-ups, and said-vs-showed |
+
+**Meetings are opened and closed by hand** on the kiosk. Check-in only works while one is
+open, and ending it auto-checks-out anyone still signed in, marking them `auto_checked_out`
+so you can see who forgot. (Streamlit Cloud has no scheduler, so closing the meeting is what
+triggers it — there is no timer.)
+
+**Tabs it creates** in the same spreadsheet, on first use:
+
+- `Meetings` — `meeting_id | date | label | opened_at | closed_at | opened_by`
+- `SessionLog` — `meeting_id | date | full_name | check_in_at | check_out_at | duration_min | auto_checked_out | device_id | flagged | flag_reason`
+
+Writes are appends and single-cell updates, never the clear-and-rewrite the attendance tab
+uses, so many phones checking in at once can't clobber each other.
+
+### Setup
+
+Add to the app's **Secrets** on Streamlit Cloud:
+
+```toml
+CHECKIN_SECRET = "a-long-random-string-nobody-can-guess"
+kiosk_pin = "1234"
+ROTATION_SECONDS = 30
+```
+
+`CHECKIN_SECRET` is the only one that really matters. **Until it is set the app uses a
+default that is published in this repo**, so anyone who can read the source can generate
+valid codes — the kiosk shows a red warning while that is the case. Generate one with:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+`kiosk_pin` defaults to `5338` and only needs to stop a student opening the code screen at
+home. The Check-In Admin page uses the same login as Settings.
+
+### Running the kiosk
+
+Open **Check-In Kiosk** on the shop laptop or TV, enter the PIN, click **Start meeting**,
+and put it full screen (F11). It refreshes itself; leave it alone for the meeting.
+
+The page asks the browser for a Wake Lock, but **set the laptop's display to never sleep**
+as well — that's the part that reliably works.
+
+### The honest limits
+
+The rotating code proves someone is **in the room**. It does not prove **who they are**.
+A student in the shop can check in an absent friend by picking their name. The device
+cookie catches the lazy version of that — one phone checking in several students gets
+those rows flagged for a human to look at — but two students with two phones will get
+through. Without logins that is the ceiling, and it is worth saying out loud before
+anyone treats this log as proof of anything.
+
+---
+
 ## Attendance Codes
 
 | Code | Meaning | Counts Toward % |

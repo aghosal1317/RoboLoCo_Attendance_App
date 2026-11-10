@@ -9,3 +9,4 @@ pillow
 qrcode
 opencv-python-headless
 scikit-learn
+extra-streamlit-components

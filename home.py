@@ -112,6 +112,36 @@ PAGES = [
         ),
         "use_when": "At the start of each season, or if the app can't reach the sheet.",
     },
+    {
+        "icon": "🖥️",
+        "title": "Check-In Kiosk",
+        "description": (
+            "PIN-gated screen for the shop laptop or TV. Shows the rotating 4-digit "
+            "check-in and check-out codes, a countdown, and a live count of who is "
+            "signed in. Start and end the meeting from here."
+        ),
+        "use_when": "Put it on screen at the start of a meeting and leave it running.",
+    },
+    {
+        "icon": "🚪",
+        "title": "Check In / Out",
+        "description": (
+            "What the QR code at the door opens. Students pick their name and type the "
+            "code from the kiosk screen, so a forwarded link alone is useless. Separate "
+            "from the P/A attendance — this records who was actually in the room."
+        ),
+        "use_when": "Students use this themselves, arriving and leaving.",
+    },
+    {
+        "icon": "🔎",
+        "title": "Check-In Admin",
+        "description": (
+            "Flagged check-ins, people who forgot to check out, and manual check in/out "
+            "for a dead phone. Also compares who said on Slack they'd be there against "
+            "who actually showed."
+        ),
+        "use_when": "After a meeting, to see whether the RSVPs matched reality.",
+    },
 ]
 
 # Render in a 3-column grid of bordered cards

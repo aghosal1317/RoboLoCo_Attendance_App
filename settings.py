@@ -28,6 +28,11 @@ DEFAULT_SHEET_ID = "1bwqw-1DzP1netXcp_L7XLEWg3BZh5glSeshDY9jeprs"
 DEFAULT_ADMIN_USERNAME = "adrblc"
 DEFAULT_ADMIN_PASSWORD = "5338"
 
+# PIN for the kiosk screen. It only needs to stop a student opening the code
+# display at home, so it is separate from the admin password above and can be
+# shared with whoever sets up the shop laptop. Override with kiosk_pin.
+DEFAULT_KIOSK_PIN = "5338"
+
 _SHEET_ID_RE = re.compile(r"^[A-Za-z0-9_-]{20,}$")
 _SHEET_URL_RE = re.compile(r"/spreadsheets/d/([A-Za-z0-9_-]+)")
 
@@ -118,3 +123,9 @@ def check_admin_login(username, password):
     user_ok = hmac.compare_digest((username or "").strip().encode(), expected_user.encode())
     pass_ok = hmac.compare_digest((password or "").encode(), expected_pass.encode())
     return user_ok and pass_ok
+
+
+def check_kiosk_pin(pin):
+    """Constant-time check of the kiosk PIN."""
+    expected = str(get_secret("kiosk_pin", DEFAULT_KIOSK_PIN))
+    return hmac.compare_digest((pin or "").strip().encode(), expected.encode())
