@@ -142,6 +142,16 @@ PAGES = [
         ),
         "use_when": "After a meeting, to see whether the RSVPs matched reality.",
     },
+    {
+        "icon": "⏱️",
+        "title": "Hours",
+        "description": (
+            "Time actually spent at meetings, from the check-in log: minutes and hours "
+            "per member per meeting, a total per member, and the grand total. Also "
+            "written to the Hours tab of the spreadsheet, rebuilt whenever a meeting ends."
+        ),
+        "use_when": "When you need raw hours — service records, awards, or a sanity check.",
+    },
 ]
 
 # Render in a 3-column grid of bordered cards

@@ -26,6 +26,7 @@ pg = st.navigation([
     st.Page("pages/11_kiosk.py",              title="Check-In Kiosk"),
     st.Page("pages/12_checkin.py",            title="Check In / Out"),
     st.Page("pages/13_checkin_admin.py",      title="Check-In Admin"),
+    st.Page("pages/14_hours.py",              title="Hours"),
 ])
 
 pg.run()

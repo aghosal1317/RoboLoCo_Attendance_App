@@ -92,6 +92,7 @@ Check-in and check-out have different codes, so a check-out code can't be used t
 | Check-In Kiosk | mentor | PIN-gated. Start/End meeting, both live codes, countdown, live "Signed in: N" |
 | Check In / Out | student | Pick your name, type the code, check in or out |
 | Check-In Admin | mentor | Flagged rows, who forgot to check out, manual fix-ups, and said-vs-showed |
+| Hours | mentor | Time per member per meeting, totals per member, and the grand total |
 
 **Meetings are opened and closed by hand** on the kiosk. Check-in only works while one is
 open, and ending it auto-checks-out anyone still signed in, marking them `auto_checked_out`
@@ -102,6 +103,15 @@ triggers it — there is no timer.)
 
 - `Meetings` — `meeting_id | date | label | opened_at | closed_at | opened_by`
 - `SessionLog` — `meeting_id | date | full_name | check_in_at | check_out_at | duration_min | auto_checked_out | device_id | flagged | flag_reason`
+- `Hours` — derived, one row per session: `full_name | date | meeting_id | check_in_at | check_out_at | minutes | hours | auto_checked_out`
+
+The `Hours` tab is rebuilt automatically whenever a meeting is closed (durations are only
+final then), and there's a manual rebuild button on the Hours page. It is derived data that
+nothing else writes, so it is safe to overwrite wholesale. Durations are recomputed from the
+timestamps rather than read from `duration_min`, so a manual fix-up can't leave a stale number
+behind. Sessions still open are excluded from every total until the meeting closes, and
+auto-checked-out sessions are counted but marked, since their length is a floor rather than a
+measurement.
 
 Writes are appends and single-cell updates, never the clear-and-rewrite the attendance tab
 uses, so many phones checking in at once can't clobber each other.

@@ -397,3 +397,59 @@ def test_student_page_shows_a_friendly_message_not_a_traceback(monkeypatch, fake
     at = _run("12_checkin.py")
     _no_exceptions(at)
     assert any("busy right now" in e.value for e in at.error)
+
+
+# ── Hours page ──────────────────────────────────────────────────────────────
+
+def test_hours_page_requires_login(fake_book):
+    at = _run("14_hours.py")
+    _no_exceptions(at)
+    assert [t.label for t in at.text_input] == ["Username", "Password"]
+
+
+def test_hours_page_empty_state(fake_book):
+    at = _run("14_hours.py", admin_authed=True)
+    _no_exceptions(at)
+    assert any("no hours to show" in i.value for i in at.info)
+
+
+def test_hours_page_shows_totals(fake_book):
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+    from datetime import timedelta
+    sl.check_in(mid, "Eshan Nayak", now=T0)
+    sl.check_out(mid, "Eshan Nayak", now=T0 + timedelta(minutes=90))
+    sl.check_in(mid, "JD Queen", now=T0)
+    sl.check_out(mid, "JD Queen", now=T0 + timedelta(minutes=30))
+
+    at = _run("14_hours.py", admin_authed=True)
+    _no_exceptions(at)
+    metrics = {m_.label: m_.value for m_ in at.metric}
+    assert metrics["Total hours"] == "2.00"
+    assert metrics["Total minutes"] == "120"
+    assert metrics["Sessions counted"] == "2"
+    assert metrics["Members"] == "2"
+
+
+def test_hours_page_flags_still_open_sessions(fake_book):
+    m = sl.open_meeting(now=T0)
+    sl.check_in(m["meeting_id"], "Eshan Nayak", now=T0)
+    at = _run("14_hours.py", admin_authed=True)
+    _no_exceptions(at)
+    assert any("still open" in c.value for c in at.caption)
+    assert {m_.label: m_.value for m_ in at.metric}["Total hours"] == "0.00"
+
+
+def test_hours_page_filters_to_one_member(fake_book):
+    from datetime import timedelta
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+    sl.check_in(mid, "Eshan Nayak", now=T0)
+    sl.check_out(mid, "Eshan Nayak", now=T0 + timedelta(minutes=45))
+    sl.check_in(mid, "JD Queen", now=T0)
+    sl.check_out(mid, "JD Queen", now=T0 + timedelta(minutes=15))
+
+    at = _run("14_hours.py", admin_authed=True)
+    at.selectbox[0].set_value("Eshan Nayak").run()
+    _no_exceptions(at)
+    assert any("45 minutes (0.75 hours)" in c.value for c in at.caption)

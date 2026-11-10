@@ -176,3 +176,109 @@ def test_manual_override_works_without_a_code(fake_book, meeting):
     assert sl.open_sessions(mid) == ["Dead Phone"]
     assert sl.manual_override(mid, "Dead Phone", "out", now=mins(60))["ok"]
     assert sl.open_sessions(mid) == []
+
+
+# ── Hours ───────────────────────────────────────────────────────────────────
+
+def test_hours_rows_computes_each_session(fake_book, meeting):
+    mid = meeting["meeting_id"]
+    sl.check_in(mid, "A One", now=mins(0))
+    sl.check_out(mid, "A One", now=mins(90))         # 1.5 h
+    sl.check_in(mid, "B Two", now=mins(10))
+    sl.check_out(mid, "B Two", now=mins(55))         # 45 min
+
+    rows = sl.hours_rows().set_index("full_name")
+    assert rows.loc["A One", "minutes"] == 90
+    assert rows.loc["A One", "hours"] == 1.5
+    assert rows.loc["B Two", "minutes"] == 45
+    assert rows.loc["B Two", "hours"] == 0.75
+
+
+def test_open_sessions_have_no_duration_and_are_excluded(fake_book, meeting):
+    mid = meeting["meeting_id"]
+    sl.check_in(mid, "Still In", now=mins(0))
+    sl.check_in(mid, "Done", now=mins(0))
+    sl.check_out(mid, "Done", now=mins(60))
+
+    rows = sl.hours_rows().set_index("full_name")
+    assert rows.loc["Still In", "minutes"] == ""
+    assert rows.loc["Still In", "hours"] == ""
+    assert sl.total_hours() == {"hours": 1.0, "minutes": 60, "sessions": 1}
+
+
+def test_member_totals_add_up_across_meetings(fake_book, meeting):
+    mid = meeting["meeting_id"]
+    sl.check_in(mid, "A One", now=mins(0))
+    sl.check_out(mid, "A One", now=mins(60))
+    sl.close_meeting(mid, now=mins(120))
+
+    later = sl.open_meeting(now=datetime(2026, 11, 11, 17, 0, 0))
+    lid = later["meeting_id"]
+    sl.check_in(lid, "A One", now=datetime(2026, 11, 11, 17, 0, 0))
+    sl.check_out(lid, "A One", now=datetime(2026, 11, 11, 18, 30, 0))
+
+    totals = sl.member_totals().set_index("full_name")
+    assert totals.loc["A One", "meetings"] == 2
+    assert totals.loc["A One", "minutes"] == 150
+    assert totals.loc["A One", "hours"] == 2.5
+
+
+def test_total_hours_across_everyone(fake_book, meeting):
+    mid = meeting["meeting_id"]
+    for name, length in (("A One", 60), ("B Two", 30), ("C Three", 90)):
+        sl.check_in(mid, name, now=mins(0))
+        sl.check_out(mid, name, now=mins(length))
+    assert sl.total_hours() == {"hours": 3.0, "minutes": 180, "sessions": 3}
+
+
+def test_duration_is_recomputed_not_trusted(fake_book, meeting):
+    """A manual fix-up can leave the stored duration stale; timestamps win."""
+    mid = meeting["meeting_id"]
+    sl.check_in(mid, "A One", now=mins(0))
+    sl.check_out(mid, "A One", now=mins(60))
+
+    ws = fake_book.tabs[sl.LOG_TAB]
+    col = ws.rows[0].index("duration_min") + 1
+    ws.update_cell(2, col, "999")                     # nonsense left behind
+
+    assert sl.hours_rows().iloc[0]["minutes"] == 60
+
+
+def test_auto_checked_out_sessions_are_counted_but_marked(fake_book, meeting):
+    mid = meeting["meeting_id"]
+    sl.check_in(mid, "Forgot", now=mins(0))
+    sl.close_meeting(mid, now=mins(120))
+
+    rows = sl.hours_rows()
+    assert rows.iloc[0]["minutes"] == 120
+    assert rows.iloc[0]["auto_checked_out"] == "TRUE"
+    assert sl.member_totals().iloc[0]["auto_closed"] == 1
+
+
+def test_closing_a_meeting_rebuilds_the_hours_tab(fake_book, meeting):
+    mid = meeting["meeting_id"]
+    sl.check_in(mid, "A One", now=mins(0))
+    sl.check_out(mid, "A One", now=mins(45))
+    assert sl.HOURS_TAB not in fake_book.tabs       # not built until the meeting ends
+
+    sl.close_meeting(mid, now=mins(120))
+
+    ws = fake_book.tabs[sl.HOURS_TAB]
+    assert ws.rows[0] == sl.HOURS_HEADER
+    row = dict(zip(ws.rows[0], ws.rows[1]))
+    assert row["full_name"] == "A One" and row["minutes"] == "45"
+
+
+def test_hours_with_no_sessions_is_empty_not_an_error(fake_book):
+    assert sl.hours_rows().empty
+    assert sl.member_totals().empty
+    assert sl.total_hours() == {"hours": 0.0, "minutes": 0, "sessions": 0}
+
+
+def test_rebuilding_hours_never_touches_attendance(fake_book, fake_ws, meeting):
+    mid = meeting["meeting_id"]
+    sl.check_in(mid, "A One", now=mins(0))
+    sl.check_out(mid, "A One", now=mins(30))
+    before = [list(r) for r in fake_ws.rows]
+    sl.rebuild_hours_tab()
+    assert fake_ws.rows == before and fake_ws.updates == []

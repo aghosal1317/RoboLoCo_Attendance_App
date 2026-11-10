@@ -27,11 +27,17 @@ from settings import get_sheet_id
 
 MEETINGS_TAB = "Meetings"
 LOG_TAB = "SessionLog"
+HOURS_TAB = "Hours"
 
 MEETING_HEADER = ["meeting_id", "date", "label", "opened_at", "closed_at", "opened_by"]
 LOG_HEADER = [
     "meeting_id", "date", "full_name", "check_in_at", "check_out_at",
     "duration_min", "auto_checked_out", "device_id", "flagged", "flag_reason",
+]
+
+HOURS_HEADER = [
+    "full_name", "date", "meeting_id", "check_in_at", "check_out_at",
+    "minutes", "hours", "auto_checked_out",
 ]
 
 TIME_FMT = "%Y-%m-%d %H:%M:%S"
@@ -183,6 +189,14 @@ def close_meeting(meeting_id=None, now=None):
         if row and row[0] == meeting_id:
             ws.update_cell(i, header.index("closed_at") + 1, _fmt(now))
             break
+
+    # Durations are final once the meeting is closed, so refresh the Hours tab.
+    # A failure here must not lose the close itself.
+    try:
+        rebuild_hours_tab()
+    except Exception:
+        pass
+
     return {"closed": 1, "auto_checked_out": auto}
 
 
@@ -300,3 +314,103 @@ def recent_meetings(limit=20):
 
 def all_sessions():
     return _frame(_tab(LOG_TAB, LOG_HEADER), LOG_HEADER)
+
+
+# ── Hours ───────────────────────────────────────────────────────────────────
+
+def _duration_minutes(row):
+    """
+    Minutes between check-in and check-out, recomputed from the timestamps
+    rather than trusting the stored value, which can be stale after a manual
+    fix-up. None while a session is still open.
+    """
+    started, ended = _parse(row.get("check_in_at")), _parse(row.get("check_out_at"))
+    if started is None or ended is None:
+        return None
+    minutes = int((ended - started).total_seconds() // 60)
+    return max(minutes, 0)
+
+
+def hours_rows():
+    """
+    One row per session, with its length — the raw list behind the Hours tab.
+    Sessions still open have blank minutes/hours and are excluded from totals.
+    """
+    df = all_sessions()
+    if df.empty:
+        return pd.DataFrame(columns=HOURS_HEADER)
+
+    out = []
+    for _, row in df.iterrows():
+        minutes = _duration_minutes(row)
+        out.append({
+            "full_name": str(row.get("full_name", "")).strip(),
+            "date": row.get("date", ""),
+            "meeting_id": row.get("meeting_id", ""),
+            "check_in_at": row.get("check_in_at", ""),
+            "check_out_at": row.get("check_out_at", ""),
+            "minutes": "" if minutes is None else minutes,
+            "hours": "" if minutes is None else round(minutes / 60, 2),
+            "auto_checked_out": row.get("auto_checked_out", ""),
+        })
+
+    frame = pd.DataFrame(out, columns=HOURS_HEADER)
+    return frame.sort_values(["full_name", "check_in_at"]).reset_index(drop=True)
+
+
+def member_totals():
+    """
+    Total time per member across every meeting they checked in and out of.
+    Columns: full_name | meetings | minutes | hours | still_open | auto_closed
+    """
+    rows = hours_rows()
+    if rows.empty:
+        return pd.DataFrame(columns=["full_name", "meetings", "minutes", "hours",
+                                     "still_open", "auto_closed"])
+
+    done = rows[rows["minutes"] != ""].copy()
+    done["minutes"] = done["minutes"].astype(int)
+
+    totals = (
+        done.groupby("full_name")
+        .agg(meetings=("minutes", "size"), minutes=("minutes", "sum"))
+        .reset_index()
+    )
+    totals["hours"] = (totals["minutes"] / 60).round(2)
+
+    open_counts = (rows[rows["minutes"] == ""].groupby("full_name").size()
+                   .rename("still_open").reset_index())
+    auto_counts = (done[done["auto_checked_out"].astype(str).str.upper() == "TRUE"]
+                   .groupby("full_name").size().rename("auto_closed").reset_index())
+
+    totals = totals.merge(open_counts, on="full_name", how="outer")
+    totals = totals.merge(auto_counts, on="full_name", how="outer")
+    for col in ("meetings", "minutes", "still_open", "auto_closed"):
+        totals[col] = totals[col].fillna(0).astype(int)
+    totals["hours"] = totals["hours"].fillna(0.0)
+
+    return totals.sort_values("minutes", ascending=False).reset_index(drop=True)
+
+
+def total_hours():
+    """Grand total across everyone: (hours, minutes, sessions counted)."""
+    rows = hours_rows()
+    if rows.empty:
+        return {"hours": 0.0, "minutes": 0, "sessions": 0}
+    done = rows[rows["minutes"] != ""]
+    minutes = int(done["minutes"].astype(int).sum())
+    return {"hours": round(minutes / 60, 2), "minutes": minutes, "sessions": len(done)}
+
+
+def rebuild_hours_tab():
+    """
+    Recompute the Hours tab from the log. It is derived data that nothing else
+    writes, so overwriting the whole tab is safe — unlike the attendance tab.
+    Called automatically when a meeting is closed, and from the Hours page.
+    """
+    rows = hours_rows()
+    ws = _tab(HOURS_TAB, HOURS_HEADER)
+    data = [HOURS_HEADER] + rows.astype(str).values.tolist()
+    _with_retry(ws.clear)
+    _with_retry(lambda: ws.update(data))
+    return len(rows)
