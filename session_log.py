@@ -123,6 +123,45 @@ def _tab(name, header):
     return ws
 
 
+# One Streamlit server shares st.cache_data across every visitor, so a cached
+# read serves the whole team from a single API call. Without this, each student
+# costs ~8 reads (Streamlit reruns the script on every keystroke and click)
+# against a 60/min quota — about 7 students a minute before it errors.
+CACHE_SECONDS = 15
+
+_HEADERS = {}          # filled in below, once the headers exist
+
+
+@st.cache_data(ttl=CACHE_SECONDS, show_spinner=False)
+def _cached_values(sheet_id, tab_name):
+    """Raw rows for a tab, shared by everyone for CACHE_SECONDS."""
+    return _with_retry(_tab(tab_name, _HEADERS[tab_name]).get_all_values)
+
+
+def _values(tab_name, cached=False):
+    if cached:
+        return _cached_values(get_sheet_id(), tab_name)
+    return _with_retry(_tab(tab_name, _HEADERS[tab_name]).get_all_values)
+
+
+def invalidate_cache():
+    """Drop the shared read cache — used when a mentor opens or closes a meeting."""
+    try:
+        _cached_values.clear()
+    except Exception:
+        pass
+
+
+def _frame_from(rows, header):
+    if len(rows) < 2:
+        return pd.DataFrame(columns=header)
+    df = pd.DataFrame(rows[1:], columns=rows[0])
+    for col in header:
+        if col not in df.columns:
+            df[col] = ""
+    return df
+
+
 def _frame(ws, header):
     rows = _with_retry(ws.get_all_values)
     if len(rows) < 2:
@@ -135,6 +174,10 @@ def _frame(ws, header):
 
 
 # ── Meetings ────────────────────────────────────────────────────────────────
+
+def _tab_frame(tab_name, cached=False):
+    return _frame_from(_values(tab_name, cached=cached), _HEADERS[tab_name])
+
 
 def open_meeting(opened_by="kiosk", label="", now=None):
     """
@@ -151,14 +194,17 @@ def open_meeting(opened_by="kiosk", label="", now=None):
     meeting_id = now.strftime("%Y%m%d-%H%M%S")
     ws.append_row([meeting_id, now.strftime("%m/%d/%y"), label, _fmt(now), "", opened_by],
                   value_input_option="USER_ENTERED")
+    invalidate_cache()
     return {"meeting_id": meeting_id, "date": now.strftime("%m/%d/%y"), "label": label,
             "opened_at": _fmt(now), "closed_at": "", "opened_by": opened_by}
 
 
-def active_meeting():
-    """The currently open meeting, or None. Latest open row wins."""
-    ws = _tab(MEETINGS_TAB, MEETING_HEADER)
-    df = _frame(ws, MEETING_HEADER)
+def active_meeting(cached=False):
+    """
+    The currently open meeting, or None. Latest open row wins.
+    Pages pass cached=True; anything that then writes reads fresh.
+    """
+    df = _tab_frame(MEETINGS_TAB, cached=cached)
     if df.empty:
         return None
     open_rows = df[df["closed_at"].astype(str).str.strip() == ""]
@@ -197,6 +243,7 @@ def close_meeting(meeting_id=None, now=None):
     except Exception:
         pass
 
+    invalidate_cache()
     return {"closed": 1, "auto_checked_out": auto}
 
 
@@ -234,24 +281,33 @@ def _close_open_sessions(meeting_id, now, auto=False, only_name=None):
     return closed
 
 
-def sessions_for(meeting_id):
-    """All log rows for one meeting, as a DataFrame."""
-    df = _frame(_tab(LOG_TAB, LOG_HEADER), LOG_HEADER)
+def sessions_for(meeting_id, cached=False):
+    """
+    Log rows for one meeting. Duplicates are collapsed to the first check-in
+    per member: the hot path checks for an existing check-in against a cached
+    read, so a double-tap within the cache window can append twice. Deduping
+    here keeps headcounts and hours right regardless.
+    """
+    df = _tab_frame(LOG_TAB, cached=cached)
     if df.empty:
         return df
-    return df[df["meeting_id"] == meeting_id].copy()
+    mine = df[df["meeting_id"] == meeting_id].copy()
+    if mine.empty:
+        return mine
+    key = mine["full_name"].astype(str).str.strip().str.lower()
+    return mine[~key.duplicated(keep="first")].copy()
 
 
-def open_sessions(meeting_id):
+def open_sessions(meeting_id, cached=False):
     """Names currently checked in — the kiosk's live 'Signed in: N'."""
-    df = sessions_for(meeting_id)
+    df = sessions_for(meeting_id, cached=cached)
     if df.empty:
         return []
     still_in = df[df["check_out_at"].astype(str).str.strip() == ""]
     return still_in["full_name"].tolist()
 
 
-def check_in(meeting_id, full_name, device_id="", now=None):
+def check_in(meeting_id, full_name, device_id="", now=None, sessions=None):
     """
     Record a check-in. One per student per meeting: a second attempt is
     rejected rather than duplicated.
@@ -261,7 +317,9 @@ def check_in(meeting_id, full_name, device_id="", now=None):
     """
     now = now or _now()
     full_name = str(full_name).strip()
-    df = sessions_for(meeting_id)
+    # The page already read the log to render the form; reusing that frame keeps
+    # a check-in at one API call (the append) instead of a read plus an append.
+    df = sessions_for(meeting_id) if sessions is None else sessions
 
     if not df.empty and (df["full_name"].str.strip().str.lower() == full_name.lower()).any():
         return {"ok": False, "reason": "already_checked_in"}
@@ -282,11 +340,11 @@ def check_in(meeting_id, full_name, device_id="", now=None):
     return {"ok": True, "flagged": bool(flagged), "flag_reason": reason}
 
 
-def check_out(meeting_id, full_name, now=None):
+def check_out(meeting_id, full_name, now=None, sessions=None):
     """Close a student's open session. Returns ok=False if they weren't in."""
     now = now or _now()
     name = str(full_name).strip().lower()
-    df = sessions_for(meeting_id)
+    df = sessions_for(meeting_id) if sessions is None else sessions
     if df.empty:
         return {"ok": False, "reason": "not_checked_in"}
 
@@ -308,12 +366,25 @@ def manual_override(meeting_id, full_name, direction, now=None):
 
 
 def recent_meetings(limit=20):
-    df = _frame(_tab(MEETINGS_TAB, MEETING_HEADER), MEETING_HEADER)
+    df = _tab_frame(MEETINGS_TAB)
     return df.tail(limit).iloc[::-1] if not df.empty else df
 
 
 def all_sessions():
-    return _frame(_tab(LOG_TAB, LOG_HEADER), LOG_HEADER)
+    """Every log row, duplicates collapsed per member per meeting."""
+    df = _tab_frame(LOG_TAB)
+    if df.empty:
+        return df
+    key = (df["meeting_id"].astype(str) + "|"
+           + df["full_name"].astype(str).str.strip().str.lower())
+    return df[~key.duplicated(keep="first")].copy()
+
+
+_HEADERS.update({
+    MEETINGS_TAB: MEETING_HEADER,
+    LOG_TAB: LOG_HEADER,
+    HOURS_TAB: HOURS_HEADER,
+})
 
 
 # ── Hours ───────────────────────────────────────────────────────────────────

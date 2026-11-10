@@ -19,7 +19,7 @@ BUSY_MESSAGE = (
 st.title("Check In / Check Out")
 
 try:
-    meeting = session_log.active_meeting()
+    meeting = session_log.active_meeting(cached=True)
 except Exception as error:
     st.error(BUSY_MESSAGE)
     st.caption(f"({type(error).__name__})")
@@ -44,7 +44,13 @@ def roster_names():
 
 try:
     names = roster_names()
-    signed_in = {n.strip().lower() for n in session_log.open_sessions(meeting["meeting_id"])}
+    # One cached read serves every student on the page; the frame is then handed
+    # to check_in/check_out so recording costs a single write and no extra read.
+    sessions = session_log.sessions_for(meeting["meeting_id"], cached=True)
+    signed_in = set()
+    if not sessions.empty:
+        still_in = sessions[sessions["check_out_at"].astype(str).str.strip() == ""]
+        signed_in = {str(n).strip().lower() for n in still_in["full_name"]}
 except Exception as error:
     st.error(BUSY_MESSAGE)
     st.caption(f"({type(error).__name__})")
@@ -59,7 +65,11 @@ name = st.selectbox(
 if not name:
     st.stop()
 
-already_in = name.strip().lower() in signed_in
+just_did = st.session_state.get("_my_checkin", {})
+if just_did.get("name") == name.strip().lower():
+    already_in = just_did["state"] == "in"
+else:
+    already_in = name.strip().lower() in signed_in
 direction = "out" if already_in else "in"
 
 if already_in:
@@ -71,8 +81,9 @@ code = st.text_input("4-digit code from the screen", max_chars=4, placeholder="0
 
 
 def do_check_out():
-    result = session_log.check_out(meeting["meeting_id"], name)
+    result = session_log.check_out(meeting["meeting_id"], name, sessions=sessions)
     if result["ok"]:
+        st.session_state["_my_checkin"] = {"name": name.strip().lower(), "state": "out"}
         st.success(f"Checked out — see you next time, {name.split()[0]}.")
         st.balloons()
     elif result["reason"] == "already_checked_out":
@@ -82,8 +93,10 @@ def do_check_out():
 
 
 def do_check_in():
-    result = session_log.check_in(meeting["meeting_id"], name, device_id=get_device_id())
+    result = session_log.check_in(meeting["meeting_id"], name,
+                                  device_id=get_device_id(), sessions=sessions)
     if result["ok"]:
+        st.session_state["_my_checkin"] = {"name": name.strip().lower(), "state": "in"}
         st.success(f"Checked in — welcome, {name.split()[0]}.")
         st.caption("Come back and check out before you leave.")
     elif result["reason"] == "already_checked_in":

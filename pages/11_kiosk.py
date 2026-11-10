@@ -55,7 +55,7 @@ if "kiosk_closed" in st.session_state:
 # ----------------------------
 # Meeting controls
 # ----------------------------
-meeting = session_log.active_meeting()
+meeting = session_log.active_meeting(cached=True)
 
 if meeting is None:
     st.warning("No meeting is open. Check-in is closed until you start one.")
@@ -111,7 +111,7 @@ def code_display():
 @st.fragment(run_every=SIGNED_IN_REFRESH_SECONDS)
 def signed_in_display():
     try:
-        signed_in = session_log.open_sessions(meeting["meeting_id"])
+        signed_in = session_log.open_sessions(meeting["meeting_id"], cached=True)
     except Exception as error:
         st.caption(f"Couldn't refresh the headcount just now ({type(error).__name__}). "
                    "Check-in is unaffected; this will retry shortly.")

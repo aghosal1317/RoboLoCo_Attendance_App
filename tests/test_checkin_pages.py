@@ -453,3 +453,95 @@ def test_hours_page_filters_to_one_member(fake_book):
     at.selectbox[0].set_value("Eshan Nayak").run()
     _no_exceptions(at)
     assert any("45 minutes (0.75 hours)" in c.value for c in at.caption)
+
+
+# ── Load: the whole team arriving at once ──────────────────────────────────
+
+def test_many_students_share_one_cached_read(counting_book, monkeypatch):
+    """
+    The failure in the field: a team scans the QR together and everyone's page
+    reads the sheet independently. st.cache_data is shared across sessions, so
+    N students must cost roughly one read, not N.
+    """
+    book, counter = counting_book
+    sl.open_meeting(now=T0)
+    mid = sl.active_meeting()["meeting_id"]
+    sl.invalidate_cache()
+
+    before = counter["reads"]
+    for _ in range(40):                       # 40 students loading the page
+        sl.sessions_for(mid, cached=True)
+    after = counter["reads"]
+
+    assert after - before <= 1, f"40 cached reads cost {after - before} API calls"
+
+
+def test_uncached_reads_are_still_available_for_correctness(counting_book):
+    book, counter = counting_book
+    sl.open_meeting(now=T0)
+    mid = sl.active_meeting()["meeting_id"]
+    before = counter["reads"]
+    for _ in range(3):
+        sl.sessions_for(mid)                  # no cached= -> always fresh
+    assert counter["reads"] - before == 3
+
+
+def test_check_in_costs_no_read_when_given_the_frame(counting_book):
+    """The hot path must be one write, not a read plus a write."""
+    book, counter = counting_book
+    sl.open_meeting(now=T0)
+    mid = sl.active_meeting()["meeting_id"]
+    sessions = sl.sessions_for(mid)
+
+    before = counter["reads"]
+    for i in range(20):
+        sl.check_in(mid, f"Student {i}", now=T0, sessions=sessions)
+    assert counter["reads"] == before, "check_in should not read when handed the frame"
+    assert len(sl.sessions_for(mid)) == 20
+
+
+def test_duplicate_appends_are_collapsed_on_read(fake_book):
+    """
+    A double-tap inside the cache window can append twice. Hours and headcounts
+    must not double-count it.
+    """
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+    stale = sl.sessions_for(mid)              # empty snapshot
+    sl.check_in(mid, "Eshan Nayak", now=T0, sessions=stale)
+    sl.check_in(mid, "Eshan Nayak", now=T0, sessions=stale)   # same stale view
+
+    assert len(sl.sessions_for(mid)) == 1
+    assert sl.open_sessions(mid) == ["Eshan Nayak"]
+    assert len(sl.all_sessions()) == 1
+
+
+def test_opening_a_meeting_takes_effect_immediately(counting_book):
+    """A mentor starting the meeting must not wait for a cache to expire."""
+    book, counter = counting_book
+    assert sl.active_meeting(cached=True) is None
+    sl.open_meeting(now=T0)
+    assert sl.active_meeting(cached=True) is not None
+
+
+def test_closing_a_meeting_takes_effect_immediately(counting_book):
+    book, counter = counting_book
+    m = sl.open_meeting(now=T0)
+    assert sl.active_meeting(cached=True) is not None
+    sl.close_meeting(m["meeting_id"], now=T0)
+    assert sl.active_meeting(cached=True) is None
+
+
+def test_student_sees_their_own_check_in_before_the_cache_refreshes(fake_book):
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+    at = _run("12_checkin.py")
+    at.selectbox[0].set_value("Eshan Nayak").run()
+    at.text_input[0].set_value(code("in", mid)).run()
+    [b for b in at.button if b.label == "Check in"][0].click().run()
+    _no_exceptions(at)
+
+    # the shared cache is still stale, but their own page must show them as in
+    at.selectbox[0].set_value("Eshan Nayak").run()
+    assert any("You're checked in" in s.value for s in at.success)
+    assert any(b.label == "Check out" for b in at.button)

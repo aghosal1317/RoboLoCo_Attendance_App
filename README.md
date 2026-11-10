@@ -116,6 +116,19 @@ measurement.
 Writes are appends and single-cell updates, never the clear-and-rewrite the attendance tab
 uses, so many phones checking in at once can't clobber each other.
 
+**How many people can check in at once.** Roughly the whole team, arriving over a couple of
+minutes. Reads are shared: Streamlit caches them across all visitors for `CACHE_SECONDS`
+(15), so the page costs about 8 reads a minute whether one student has it open or eighty.
+Recording a check-in is a single write — the page hands its already-fetched rows to
+`check_in`, so there is no extra read on the hot path.
+
+That leaves writes as the limit, at 60/minute: about 60 check-ins in a single minute, or the
+whole team across two. A tighter burst is retried with backoff, and anyone unlucky sees
+"the sheet is busy, try again in a few seconds" rather than an error.
+
+The original version cost ~8 reads *per student*, because Streamlit reruns the whole script
+on every keystroke and click — roughly 7 students a minute before it broke.
+
 **Staying inside the API quota.** Google allows roughly 60 reads/minute per user, shared by
 everyone using the app. The kiosk refreshes its codes every second, so that part makes **no**
 API calls at all — the code is computed locally from the secret. Only the "Signed in: N"
