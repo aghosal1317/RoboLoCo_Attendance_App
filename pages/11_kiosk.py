@@ -13,6 +13,10 @@ from rotating_code import (
 )
 from settings import check_kiosk_pin
 
+# How often the kiosk re-reads the log for the headcount. The codes update every
+# second regardless; only this costs an API call.
+SIGNED_IN_REFRESH_SECONDS = 20
+
 st.title("Check-In Kiosk")
 
 # ----------------------------
@@ -76,7 +80,10 @@ st.divider()
 
 
 # ----------------------------
-# The codes — refreshed on their own so the screen can be left alone
+# The codes. This refreshes every second for the countdown, so it must make
+# NO Sheets calls — current_code() is a pure HMAC. Reading the signed-in count
+# here too would be ~120 API requests a minute against a 60/min quota, which
+# rate-limits the kiosk and every student's phone along with it.
 # ----------------------------
 @st.fragment(run_every=1)
 def code_display():
@@ -99,17 +106,29 @@ def code_display():
     st.progress(max(0.0, min(1.0, left / rotation)))
     st.caption(f"New codes in {int(left)}s · rotates every {rotation}s")
 
-    signed_in = session_log.open_sessions(meeting["meeting_id"])
+
+# The headcount is the only part that needs the API, so it refreshes slowly.
+@st.fragment(run_every=SIGNED_IN_REFRESH_SECONDS)
+def signed_in_display():
+    try:
+        signed_in = session_log.open_sessions(meeting["meeting_id"])
+    except Exception as error:
+        st.caption(f"Couldn't refresh the headcount just now ({type(error).__name__}). "
+                   "Check-in is unaffected; this will retry shortly.")
+        return
+
     st.markdown(
         f"<div style='text-align:center;font-size:2rem;margin-top:.5rem'>"
         f"Signed in: <strong>{len(signed_in)}</strong></div>",
         unsafe_allow_html=True,
     )
+    st.caption(f"Updates every {SIGNED_IN_REFRESH_SECONDS}s")
     with st.expander("Who's signed in"):
         st.write(", ".join(sorted(signed_in)) if signed_in else "Nobody yet.")
 
 
 code_display()
+signed_in_display()
 
 # Best-effort: ask the browser not to sleep the screen mid-meeting.
 # st.html can't run scripts and st.iframe takes a URL, so this needs the old

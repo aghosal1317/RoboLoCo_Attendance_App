@@ -15,10 +15,12 @@ Writes are append_row / single-cell updates, never a clear-and-rewrite, so
 many phones checking in at once can't clobber each other the way the main
 attendance save would.
 """
+import time
 from datetime import datetime, timezone
 
 import gspread
 import pandas as pd
+import streamlit as st
 
 from data_loader import _get_credentials, SCOPES  # noqa: F401  (SCOPES documents intent)
 from settings import get_sheet_id
@@ -50,26 +52,73 @@ def _parse(value):
         return None
 
 
+def _is_rate_limited(error):
+    status = getattr(getattr(error, "response", None), "status_code", None)
+    return status in (429, 503)
+
+
+def _with_retry(call, attempts=3, base_delay=1.0):
+    """
+    Retry a Sheets call on 429/503 with backoff. A rush at the door can burst
+    past the per-minute quota; one retry usually rides it out.
+    """
+    for attempt in range(attempts):
+        try:
+            return call()
+        except gspread.exceptions.APIError as error:
+            if attempt == attempts - 1 or not _is_rate_limited(error):
+                raise
+            time.sleep(base_delay * (2 ** attempt))
+
+
+@st.cache_resource(show_spinner=False)
+def _open_book(sheet_id):
+    """
+    Cached spreadsheet handle. Re-opening it per call costs a
+    fetch_sheet_metadata request each time, which is most of the read quota.
+    """
+    return gspread.authorize(_get_credentials()).open_by_key(sheet_id)
+
+
 def _spreadsheet():
-    return gspread.authorize(_get_credentials()).open_by_key(get_sheet_id())
+    return _open_book(get_sheet_id())
 
 
 def _tab(name, header):
-    """Fetch a tab, creating it with its header row the first time."""
+    """
+    Fetch a tab, creating it with its header row the first time.
+
+    Worksheet handles are cached on the spreadsheet object: gspread's
+    .worksheet() re-fetches sheet metadata on every call, and at the kiosk's
+    refresh rate that alone would exhaust the read quota.
+    """
     book = _spreadsheet()
+    cache = getattr(book, "_tab_cache", None)
+    if cache is None:
+        cache = {}
+        try:
+            book._tab_cache = cache
+        except Exception:
+            pass
+    if name in cache:
+        return cache[name]
+
     try:
-        ws = book.worksheet(name)
+        ws = _with_retry(lambda: book.worksheet(name))
     except gspread.WorksheetNotFound:
         ws = book.add_worksheet(title=name, rows=1000, cols=max(len(header), 10))
         ws.update([header])
+        cache[name] = ws
         return ws
-    if not ws.get_all_values():
+
+    if not _with_retry(ws.get_all_values):
         ws.update([header])
+    cache[name] = ws
     return ws
 
 
 def _frame(ws, header):
-    rows = ws.get_all_values()
+    rows = _with_retry(ws.get_all_values)
     if len(rows) < 2:
         return pd.DataFrame(columns=header)
     df = pd.DataFrame(rows[1:], columns=rows[0])

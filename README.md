@@ -105,6 +105,14 @@ triggers it — there is no timer.)
 Writes are appends and single-cell updates, never the clear-and-rewrite the attendance tab
 uses, so many phones checking in at once can't clobber each other.
 
+**Staying inside the API quota.** Google allows roughly 60 reads/minute per user, shared by
+everyone using the app. The kiosk refreshes its codes every second, so that part makes **no**
+API calls at all — the code is computed locally from the secret. Only the "Signed in: N"
+headcount reads the sheet, every `SIGNED_IN_REFRESH_SECONDS` (default 20), and the spreadsheet
+and tab handles are cached rather than re-opened per call. That is about 3 reads/minute for an
+idle kiosk. Rate-limited calls are retried with backoff, and if one still fails, students see
+"the sheet is busy, try again in a few seconds" rather than a traceback.
+
 ### Setup
 
 Add to the app's **Secrets** on Streamlit Cloud:
