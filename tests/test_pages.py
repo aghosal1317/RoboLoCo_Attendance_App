@@ -685,3 +685,29 @@ def test_slack_sync_written_sheet_puts_subteam_after_full_name(monkeypatch):
     _no_exceptions(at)
     assert ws.rows[0][:5] == ["Last Name", "First Name", "Full Name",
                               "Subteam", "% Meetings Attended"]
+
+
+def test_slack_sync_records_books_reactors_as_excused(fake_ws):
+    results = _dated("Mech :hammer_and_wrench:. Software :computer:. :books: for college apps.")
+    results.update({
+        "Mechanical": ["Srin Dasari"], "Software": [], "Executive": [], "Loco": [],
+        "Mentors": [], "Coaches": [],
+        "excused": ["Eshan Nayak"], "wont_attend": ["JD Queen"],
+        "invited": set(ALL_SUBTEAMS),
+    })
+    at = _run("3_slack_sync.py", slack_results=results)
+    at.date_input[0].set_value(date(2026, 1, 15)).run()
+    _no_exceptions(at)
+    assert any("Excused — college apps (1)" in e.label for e in at.expander)
+
+    [b for b in at.button if b.label == "Save to Attendance Sheet"][0].click().run()
+    _no_exceptions(at)
+
+    header = fake_ws.rows[0]
+    col = header.index("01/15/26")
+    by_name = {r[header.index("Full Name")]: r[col] for r in fake_ws.rows[1:]}
+    assert by_name["Srin Dasari"] == "P"      # reacted with a subteam emoji
+    assert by_name["Eshan Nayak"] == "O"      # 📚 excused
+    assert by_name["JD Queen"] == "A"         # thumbs-down is still an absence
+    assert by_name["Julia Miller"] == "A"     # no reaction at all
+    assert any("excused for college apps" in c.value for c in at.caption)

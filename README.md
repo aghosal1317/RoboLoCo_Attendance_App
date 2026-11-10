@@ -28,7 +28,8 @@ Paste a Slack message link and the app fetches all emoji reactions via the Slack
 - 💼 `briefcase` → Executive ("Leadership")
 - 📝 `memo` / `pencil` → Mentors
 - 🏫 `school` → Coaches — recorded like any subteam, but exempt from the 70% threshold and excluded from team-level stats
-- 👎 thumbs-down variants → Won't attend
+- 📚 `books` → excused for that meeting (college apps): recorded `O`, so it doesn't count against them
+- 👎 thumbs-down variants → Won't attend (still `A`)
 
 Matches Slack display names against the roster and warns about any unresolved names.
 

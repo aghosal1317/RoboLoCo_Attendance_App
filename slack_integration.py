@@ -50,9 +50,15 @@ _GLYPH_TO_NAME = {
     "\U0001F58C": "paintbrush",
     "\U0001F4BC": "briefcase",
     "\U0001F4DD": "memo",
+    "\U0001F4DA": "books",
     "\U0001F3EB": "school",
     "\U0001F44E": "-1",
 }
+
+# 📚 means "excused for this meeting" — college apps. Not a subteam, and not
+# attendance: they are recorded O, so the meeting doesn't count against them.
+# Anyone who stays silent or thumbs-downs still gets A.
+EXCUSED_EMOJIS = {"books"}
 
 # All thumbs-down skin tone variants count as "won't attend"
 WONT_ATTEND_EMOJIS = {
@@ -160,6 +166,7 @@ def get_attendance_by_subteam(token: str, link: str) -> dict:
         "Loco": [...],
         "Executive": [...],
         "wont_attend": [real names who reacted 👎],
+        "excused": [real names who reacted 📚 — recorded O, no penalty],
         "invited": {subteam names the message asked for},
         "text": the message text,
         "error": "..." (only if the API call failed)
@@ -177,12 +184,15 @@ def get_attendance_by_subteam(token: str, link: str) -> dict:
 
     result = {subteam: [] for subteam in set(SUBTEAM_EMOJIS.values())}
     result["wont_attend"] = []
+    result["excused"] = []
 
     for emoji, users in reactions.items():
         base = _base_emoji(emoji)
         if base in SUBTEAM_EMOJIS:
             subteam = SUBTEAM_EMOJIS[base]
             result[subteam].extend(resolve(uid) for uid in users)
+        elif base in EXCUSED_EMOJIS:
+            result["excused"].extend(resolve(uid) for uid in users)
         elif emoji in WONT_ATTEND_EMOJIS or base == "-1":
             result["wont_attend"].extend(resolve(uid) for uid in users)
 

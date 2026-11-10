@@ -396,7 +396,8 @@ def existing_attendance(df, date_str):
 
 
 def write_attendance(df, date_str, present_names, absent_code="A",
-                     only_subteams=None, uninvited_code="O"):
+                     only_subteams=None, uninvited_code="O",
+                     excused_names=None, excused_code="O"):
     """
     Record one meeting for the roster: everyone in present_names gets P,
     everyone else gets absent_code (A for a regular meeting, O for an optional
@@ -409,6 +410,11 @@ def write_attendance(df, date_str, present_names, absent_code="A",
     is untouched). Anyone who did show up is still marked P regardless of
     subteam. only_subteams=None means the whole roster was invited.
 
+    excused_names are people individually let off this meeting (reacting 📚 for
+    college apps, say). They get excused_code — O by default, so the meeting is
+    ignored for them rather than counting against them. Saying you're coming
+    still wins: anyone in present_names is P even if also excused.
+
     Returns (matched_count, unrecognized_names). Every page that records a
     meeting goes through here so they can't drift apart.
     """
@@ -418,6 +424,10 @@ def write_attendance(df, date_str, present_names, absent_code="A",
 
     is_present = roster_lower.isin(present_lower)
     codes = is_present.map({True: "P", False: absent_code})
+
+    excused_lower = {str(n).strip().lower() for n in (excused_names or ())}
+    is_excused = roster_lower.isin(excused_lower) & ~is_present
+    codes = codes.mask(is_excused, excused_code)
 
     if only_subteams is not None:
         wanted = {canonical_subteam(s) for s in only_subteams}
@@ -433,7 +443,7 @@ def write_attendance(df, date_str, present_names, absent_code="A",
         # for "Mechanical"). Applying it would record the entire team as
         # "didn't apply" — far worse than ignoring the restriction, so ignore it.
         if invited.any():
-            codes = codes.where(invited | is_present | unknown, uninvited_code)
+            codes = codes.where(invited | is_present | is_excused | unknown, uninvited_code)
 
     for c in date_cols:
         df[c] = codes

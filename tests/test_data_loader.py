@@ -546,3 +546,62 @@ def test_canonical_subteam_treats_every_empty_form_as_no_subteam():
     import numpy as np
     for empty in (None, "", "   ", float("nan"), np.nan, "nan", "NaN"):
         assert dl.canonical_subteam(empty) == "", f"{empty!r} should mean no subteam"
+
+
+# ── 📚 excused members ──────────────────────────────────────────────────────
+
+def test_excused_members_get_o_while_silence_and_thumbs_down_get_a(fake_ws):
+    """
+    📚 (college apps) is excused: O, ignored in their percentage. Reacting
+    thumbs-down or not reacting at all is still a plain absence.
+    """
+    df = dl.load_data()
+    dl.write_attendance(df, "01/15/26",
+                        present_names=["Srin Dasari"],
+                        absent_code="A",
+                        excused_names=["Eshan Nayak", "JD Queen"])
+    by_name = dict(zip(df["Full Name"], df["01/15/26"]))
+    assert by_name["Srin Dasari"] == "P"      # reacted with a subteam emoji
+    assert by_name["Eshan Nayak"] == "O"      # 📚 excused
+    assert by_name["JD Queen"] == "O"         # 📚 excused
+    assert by_name["Julia Miller"] == "A"     # silent or thumbs-down
+
+
+def test_saying_you_are_coming_beats_being_excused(fake_ws):
+    df = dl.load_data()
+    dl.write_attendance(df, "01/15/26", present_names=["Eshan Nayak"],
+                        absent_code="A", excused_names=["Eshan Nayak"])
+    assert dict(zip(df["Full Name"], df["01/15/26"]))["Eshan Nayak"] == "P"
+
+
+def test_excused_does_not_hurt_the_percentage(fake_ws):
+    df = dl.load_data()
+    before = dict(zip(df["Full Name"], dl.recalc_percentages(df)["% Meetings Attended"]))
+    dl.write_attendance(df, "01/15/26", present_names=[], absent_code="A",
+                        excused_names=["Eshan Nayak"])
+    after = dict(zip(df["Full Name"], dl.recalc_percentages(df)["% Meetings Attended"]))
+    assert after["Eshan Nayak"] == before["Eshan Nayak"]     # O is ignored entirely
+    assert after["Julia Miller"] <= before["Julia Miller"]   # A counts against
+
+
+def test_excused_survives_the_uninvited_subteam_rule(fake_ws):
+    """Someone excused in a subteam that wasn't invited is still just O."""
+    df = dl.load_data()
+    dl.write_attendance(df, "01/15/26", present_names=[], absent_code="A",
+                        only_subteams=["Software"], excused_names=["JD Queen"])
+    by_name = dict(zip(df["Full Name"], df["01/15/26"]))
+    assert by_name["JD Queen"] == "O"
+    assert by_name["Julia Miller"] == "A"     # Software, invited, silent
+
+
+def test_excused_names_not_on_the_roster_are_ignored(fake_ws):
+    df = dl.load_data()
+    dl.write_attendance(df, "01/15/26", present_names=[], absent_code="A",
+                        excused_names=["Nobody Here"])
+    assert set(df["01/15/26"]) == {"A"}
+
+
+def test_no_excused_list_behaves_exactly_as_before(fake_ws):
+    df = dl.load_data()
+    dl.write_attendance(df, "01/15/26", ["Eshan Nayak"], "A")
+    assert df["01/15/26"].tolist() == ["P", "A", "A", "A"]

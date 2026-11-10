@@ -252,3 +252,34 @@ def test_no_date_at_all():
     assert si.find_meeting_date(None, TODAY) is None
 
 
+
+
+# ── 📚 excused for college apps ─────────────────────────────────────────────
+
+def test_books_reaction_is_excused_not_a_subteam(fake_slack):
+    fake_slack(
+        "Mech :hammer_and_wrench:. Software :computer:. React :books: if you're doing "
+        "college apps. If you won't be there, react :-1:.",
+        {"hammer_and_wrench": ["M1"], "books": ["C1", "C2"], "-1": ["N1"]},
+        {"M1": "Srin Dasari", "C1": "Eshan Nayak", "C2": "JD Queen", "N1": "Julia Miller"},
+    )
+    r = si.get_attendance_by_subteam("tok", "https://x.slack.com/archives/C1/p1700000000000000")
+
+    assert sorted(r["excused"]) == ["Eshan Nayak", "JD Queen"]
+    assert r["wont_attend"] == ["Julia Miller"]
+    assert r["Mechanical"] == ["Srin Dasari"]
+    # 📚 must not look like a subteam invite
+    assert "books" not in si.SUBTEAM_EMOJIS
+    assert si.find_invited_subteams(r["text"]) == {"Mechanical", "Software"}
+
+
+def test_books_glyph_is_recognised_too(fake_slack):
+    fake_slack("React \U0001F4DA for college apps", {"books": ["C1"]}, {"C1": "Eshan Nayak"})
+    r = si.get_attendance_by_subteam("tok", "https://x.slack.com/archives/C1/p1700000000000000")
+    assert r["excused"] == ["Eshan Nayak"]
+
+
+def test_no_books_reactions_gives_an_empty_list(fake_slack):
+    fake_slack(SUBSET_TEXT, {"computer": ["U1"]})
+    r = si.get_attendance_by_subteam("tok", "https://x.slack.com/archives/C1/p1700000000000000")
+    assert r["excused"] == []

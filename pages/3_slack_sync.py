@@ -93,9 +93,21 @@ if "slack_results" in st.session_state:
         for name in sorted(members):
             col.write(f"✅ {name}")
 
+    # Excused for this meeting (📚 college apps) — recorded O, not A
+    excused = results.get("excused", [])
+    if excused:
+        with st.expander(f"📚 Excused — college apps ({len(excused)})", expanded=True):
+            st.caption(
+                "These members reacted 📚, so this meeting is marked **O** for them: it's "
+                "ignored in their percentage rather than counting against them."
+            )
+            for name in sorted(excused):
+                st.write(f"📚 {name}")
+
     # Won't attend
     wont = results.get("wont_attend", [])
     with st.expander(f"Won't Attend ({len(wont)})"):
+        st.caption("Thumbs-down is still an absence — these members get the normal absent code.")
         if wont:
             for name in sorted(wont):
                 st.write(f"❌ {name}")
@@ -285,10 +297,14 @@ if "slack_results" in st.session_state:
     # ----------------------------
     st.subheader("Submit Attendance")
     absent_label = "O (optional, no deduction)" if is_optional else "A"
+    excused_note = (
+        f" **{len(excused)}** who reacted 📚 get **O** (excused, no penalty)." if excused else ""
+    )
     st.caption(
         f"Saving to **{date_str}**. Members of "
         f"{', '.join(label(s) for s in invited) or '(no subteams selected)'} "
-        f"who reacted with their subteam emoji get **P**; the rest of those subteams get **{absent_label}**."
+        f"who reacted with their subteam emoji get **P**; the rest of those subteams get "
+        f"**{absent_label}**.{excused_note}"
         + (f" Everyone in {', '.join(label(s) for s in uninvited)} gets **{uninvited_code}**." if uninvited else "")
     )
 
@@ -313,12 +329,15 @@ if "slack_results" in st.session_state:
         matched_count, unmatched = write_attendance(
             fresh_df, date_str, present_names, absent_code,
             only_subteams=invited, uninvited_code=uninvited_code,
+            excused_names=excused,
         )
         fresh_df = recalc_percentages(fresh_df)
         saved = save_data(fresh_df)
 
         if saved:
             st.success(f"✅ Attendance saved for {date_str}! {matched_count} members marked present.")
+            if excused:
+                st.caption(f"📚 {len(excused)} excused for college apps — recorded O, no penalty.")
             if sub_result["filled"] or sub_result["changed"]:
                 bits = []
                 if sub_result["filled"]:
