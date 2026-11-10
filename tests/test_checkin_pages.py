@@ -545,3 +545,143 @@ def test_student_sees_their_own_check_in_before_the_cache_refreshes(fake_book):
     at.selectbox[0].set_value("Eshan Nayak").run()
     assert any("You're checked in" in s.value for s in at.success)
     assert any(b.label == "Check out" for b in at.button)
+
+
+# ── Write capacity ─────────────────────────────────────────────────────────
+
+class WriteCountingWorksheet(conftest.FakeWorksheet):
+    def __init__(self, *a, counter=None, **kw):
+        super().__init__(*a, **kw)
+        self.counter = counter if counter is not None else {"writes": 0}
+
+    def append_row(self, values, value_input_option=None):
+        self.counter["writes"] += 1
+        super().append_row(values, value_input_option)
+
+    def append_rows(self, values, value_input_option=None):
+        self.counter["writes"] += 1          # one API call for the whole batch
+        super().append_rows(values, value_input_option)
+
+    def update_cell(self, row, col, value):
+        self.counter["writes"] += 1
+        super().update_cell(row, col, value)
+
+    def batch_update(self, body, value_input_option=None):
+        self.counter["writes"] += 1          # one API call for every cell
+        for item in body:
+            import re
+            m = re.match(r"([A-Z]+)(\d+)", item["range"])
+            col = 0
+            for ch in m.group(1):
+                col = col * 26 + (ord(ch) - 64)
+            conftest.FakeWorksheet.update_cell(self, int(m.group(2)), col,
+                                               item["values"][0][0])
+
+
+class WriteCountingBook(conftest.FakeSpreadsheet):
+    def __init__(self, counter):
+        super().__init__("Fake", tabs={})
+        self.counter = counter
+
+    def add_worksheet(self, title, rows=100, cols=20):
+        ws = WriteCountingWorksheet([], title=title, counter=self.counter)
+        ws.spreadsheet = self
+        self.tabs[title] = ws
+        return ws
+
+
+@pytest.fixture
+def write_book(monkeypatch):
+    counter = {"writes": 0}
+    book = WriteCountingBook(counter)
+    monkeypatch.setattr(sl, "_spreadsheet", lambda: book)
+    return book, counter
+
+
+def test_closing_a_big_meeting_is_one_batched_write(write_book):
+    """
+    Regression: closing a meeting wrote three cells per person still signed in
+    — 228 writes for a team of 76, far past the 60/min quota, so ending the
+    meeting failed outright.
+    """
+    book, counter = write_book
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+    sessions = sl.sessions_for(mid)
+    for i in range(76):
+        sl.check_in(mid, f"Student {i}", now=T0, sessions=sessions)
+
+    before = counter["writes"]
+    result = sl.close_meeting(mid, now=T0)
+    spent = counter["writes"] - before
+
+    assert len(result["auto_checked_out"]) == 76
+    assert spent <= 4, f"closing a 76-person meeting cost {spent} writes"
+
+
+def test_concurrent_check_ins_are_coalesced(write_book, monkeypatch):
+    """
+    Rows queued while another thread is flushing go out in that next flush, so
+    a rush costs far fewer writes than it has students.
+    """
+    import threading
+    book, counter = write_book
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+    sessions = sl.sessions_for(mid)
+
+    real_append = WriteCountingWorksheet.append_rows
+    gate = threading.Event()
+
+    def slow_append(self, values, value_input_option=None):
+        gate.wait(timeout=2)                 # hold the first flush open
+        return real_append(self, values, value_input_option)
+
+    monkeypatch.setattr(WriteCountingWorksheet, "append_rows", slow_append)
+
+    before = counter["writes"]
+    threads = [threading.Thread(target=sl.check_in,
+                                args=(mid, f"Student {i}"),
+                                kwargs={"now": T0, "sessions": sessions})
+               for i in range(30)]
+    for t in threads:
+        t.start()
+    gate.set()
+    for t in threads:
+        t.join(timeout=5)
+
+    monkeypatch.setattr(WriteCountingWorksheet, "append_rows", real_append)
+    sl.flush_pending()
+
+    spent = counter["writes"] - before
+    assert len(sl.sessions_for(mid)) == 30, "every student must still be recorded"
+    assert spent < 30, f"30 concurrent check-ins cost {spent} writes, no coalescing"
+
+
+def test_a_failed_flush_keeps_the_rows_queued(write_book, monkeypatch):
+    """Nothing may be dropped if the sheet rejects the write."""
+    book, counter = write_book
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+
+    def boom(self, values, value_input_option=None):
+        raise RuntimeError("sheet unavailable")
+
+    monkeypatch.setattr(WriteCountingWorksheet, "append_rows", boom)
+    with pytest.raises(RuntimeError):
+        sl.check_in(mid, "Eshan Nayak", now=T0, sessions=sl.sessions_for(mid))
+    assert sl.pending_count() == 1
+
+    monkeypatch.undo()
+    sl.flush_pending()
+    assert sl.pending_count() == 0
+    assert sl.open_sessions(mid) == ["Eshan Nayak"]
+
+
+def test_a_fresh_read_includes_queued_rows(write_book):
+    book, counter = write_book
+    m = sl.open_meeting(now=T0)
+    mid = m["meeting_id"]
+    sl.check_in(mid, "Eshan Nayak", now=T0, sessions=sl.sessions_for(mid))
+    assert sl.pending_count() == 0          # flushed on the way out
+    assert sl.open_sessions(mid) == ["Eshan Nayak"]

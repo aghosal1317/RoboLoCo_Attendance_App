@@ -15,6 +15,7 @@ Writes are append_row / single-cell updates, never a clear-and-rewrite, so
 many phones checking in at once can't clobber each other the way the main
 attendance save would.
 """
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -221,6 +222,10 @@ def close_meeting(meeting_id=None, now=None):
     Returns {"closed": n, "auto_checked_out": [names]}.
     """
     now = now or _now()
+    try:
+        flush_pending()          # don't close a meeting with check-ins still queued
+    except Exception:
+        pass
     meeting = active_meeting()
     if meeting is None:
         return {"closed": 0, "auto_checked_out": []}
@@ -247,6 +252,88 @@ def close_meeting(meeting_id=None, now=None):
     return {"closed": 1, "auto_checked_out": auto}
 
 
+# ── Batching writes ─────────────────────────────────────────────────────────
+#
+# Writes are the ceiling: Google allows ~60/minute for the whole app. Two things
+# used to blow through it — a check-in costing one append each, and closing a
+# meeting costing three cell updates per person still signed in (228 writes for
+# a team of 76, which simply fails).
+#
+# Check-ins are coalesced instead. Each one queues its row and then tries to
+# flush; only one thread flushes at a time, so anything queued while a flush is
+# in flight goes out together in the next one. Under a rush that turns dozens of
+# appends into a couple of calls, and when it's quiet each check-in still writes
+# immediately — there is no timer, so nothing sits unwritten waiting for one.
+
+_pending_rows = []
+_pending_lock = threading.Lock()
+_flush_lock = threading.Lock()
+
+
+def _column_letter(index):
+    """1 -> A, 27 -> AA."""
+    letters = ""
+    while index > 0:
+        index, remainder = divmod(index - 1, 26)
+        letters = chr(65 + remainder) + letters
+    return letters
+
+
+def _batch_set_cells(ws, updates):
+    """
+    Apply [(row, col, value), ...] in ONE API call instead of one per cell.
+    Falls back to update_cell if the worksheet has no batch_update.
+    """
+    if not updates:
+        return 0
+    if not hasattr(ws, "batch_update"):
+        for row, col, value in updates:
+            _with_retry(lambda r=row, c=col, v=value: ws.update_cell(r, c, v))
+        return len(updates)
+
+    body = [{"range": f"{_column_letter(col)}{row}", "values": [[value]]}
+            for row, col, value in updates]
+    _with_retry(lambda: ws.batch_update(body, value_input_option="USER_ENTERED"))
+    return 1
+
+
+def _queue_row(row):
+    with _pending_lock:
+        _pending_rows.append(row)
+
+
+def flush_pending(force=False):
+    """
+    Write everything queued. Returns how many rows went out. Safe to call from
+    anywhere; if another thread is already flushing, this one simply returns
+    once that flush has covered its row.
+    """
+    acquired = _flush_lock.acquire(blocking=True, timeout=10)
+    if not acquired:
+        return 0
+    try:
+        with _pending_lock:
+            batch = _pending_rows[:]
+            _pending_rows.clear()
+        if not batch:
+            return 0
+        try:
+            ws = _tab(LOG_TAB, LOG_HEADER)
+            _with_retry(lambda: ws.append_rows(batch, value_input_option="USER_ENTERED"))
+        except Exception:
+            with _pending_lock:                 # put them back; nothing is lost
+                _pending_rows[:0] = batch
+            raise
+        return len(batch)
+    finally:
+        _flush_lock.release()
+
+
+def pending_count():
+    with _pending_lock:
+        return len(_pending_rows)
+
+
 # ── Check in / out ──────────────────────────────────────────────────────────
 
 def _close_open_sessions(meeting_id, now, auto=False, only_name=None):
@@ -259,6 +346,7 @@ def _close_open_sessions(meeting_id, now, auto=False, only_name=None):
     idx = {c: header.index(c) + 1 for c in header}
     closed = []
 
+    cell_updates = []
     for i, row in enumerate(rows[1:], start=2):
         record = dict(zip(header, row))
         if record.get("meeting_id") != meeting_id:
@@ -275,10 +363,20 @@ def _close_open_sessions(meeting_id, now, auto=False, only_name=None):
             updates["auto_checked_out"] = "TRUE"
         for col, value in updates.items():
             if col in idx:
-                ws.update_cell(i, idx[col], value)
+                cell_updates.append((i, idx[col], value))
         closed.append(record.get("full_name", ""))
 
+    # One call for the whole meeting rather than three per person: closing a
+    # meeting of 76 was 228 writes, well past the per-minute quota.
+    _batch_set_cells(ws, cell_updates)
     return closed
+
+
+def _flush_quietly():
+    try:
+        flush_pending()
+    except Exception:
+        pass
 
 
 def sessions_for(meeting_id, cached=False):
@@ -288,6 +386,8 @@ def sessions_for(meeting_id, cached=False):
     read, so a double-tap within the cache window can append twice. Deduping
     here keeps headcounts and hours right regardless.
     """
+    if not cached:
+        _flush_quietly()         # a fresh read must include anything still queued
     df = _tab_frame(LOG_TAB, cached=cached)
     if df.empty:
         return df
@@ -331,12 +431,9 @@ def check_in(meeting_id, full_name, device_id="", now=None, sessions=None):
         if not others.empty:
             flagged, reason = "TRUE", f"same device as {', '.join(sorted(set(others['full_name'])))}"
 
-    ws = _tab(LOG_TAB, LOG_HEADER)
-    ws.append_row(
-        [meeting_id, now.strftime("%m/%d/%y"), full_name, _fmt(now), "", "", "",
-         str(device_id or ""), flagged, reason],
-        value_input_option="USER_ENTERED",
-    )
+    _queue_row([meeting_id, now.strftime("%m/%d/%y"), full_name, _fmt(now), "", "", "",
+                str(device_id or ""), flagged, reason])
+    flush_pending()
     return {"ok": True, "flagged": bool(flagged), "flag_reason": reason}
 
 

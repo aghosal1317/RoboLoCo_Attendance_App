@@ -122,9 +122,21 @@ minutes. Reads are shared: Streamlit caches them across all visitors for `CACHE_
 Recording a check-in is a single write — the page hands its already-fetched rows to
 `check_in`, so there is no extra read on the hot path.
 
-That leaves writes as the limit, at 60/minute: about 60 check-ins in a single minute, or the
-whole team across two. A tighter burst is retried with backoff, and anyone unlucky sees
-"the sheet is busy, try again in a few seconds" rather than an error.
+Writes are batched too. A check-in queues its row and then tries to flush; only one thread
+flushes at a time, so anything queued while a flush is in flight goes out with it. A rush of
+30 students costs a handful of appends rather than 30, and when it's quiet each check-in still
+writes immediately — there's no timer, so nothing sits unwritten. If a flush fails the rows
+stay queued rather than being dropped.
+
+Closing a meeting writes every check-out in a single `batch_update`. It used to be three cells
+per person still signed in — 228 writes for a team of 76, which simply failed.
+
+    76 students, worst case:  before  76 appends + 228 updates = 304 writes
+                              after   ~5 appends +   1 update  =   6 writes
+
+If you ever do outgrow this, the other lever is Google's side: the 60/minute figure is the
+default *per-user* quota for the service account, and it can be raised from the Google Cloud
+console under APIs & Services → Google Sheets API → Quotas.
 
 The original version cost ~8 reads *per student*, because Streamlit reruns the whole script
 on every keystroke and click — roughly 7 students a minute before it broke.

@@ -62,6 +62,23 @@ class FakeWorksheet:
     def append_row(self, values, value_input_option=None):
         self.rows.append([str(v) for v in values])
 
+    def append_rows(self, values, value_input_option=None):
+        for row in values:
+            self.rows.append([str(v) for v in row])
+
+    def batch_update(self, body, value_input_option=None):
+        """Applies [{"range": "C7", "values": [[v]]}] like gspread does."""
+        import re
+        self.batch_updates = getattr(self, "batch_updates", 0) + 1
+        for item in body:
+            match = re.match(r"([A-Z]+)(\d+)", item["range"])
+            letters, row = match.group(1), int(match.group(2))
+            col = 0
+            for ch in letters:
+                col = col * 26 + (ord(ch) - 64)
+            value = item["values"][0][0]
+            self.update_cell(row, col, value)
+
     def update_cell(self, row, col, value):
         while len(self.rows) < row:
             self.rows.append([])
